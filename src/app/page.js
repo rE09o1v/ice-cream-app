@@ -488,7 +488,35 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
+      {/* スマホ用ダッシュボードタイトルとボタン */}
+      <div className="block sm:hidden mb-6">
+        <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">ダッシュボード</h2>
+        <div className="flex flex-row justify-between gap-2 w-full mb-6">
+          <button
+            onClick={onOpenProductManagement}
+            className="flex flex-col items-center justify-center w-24 aspect-square bg-purple-500 text-white font-semibold rounded-xl hover:bg-purple-600 transition-colors"
+          >
+            <ShoppingCart className="w-8 h-8 mb-1" />
+            <span className="text-xs">商品管理</span>
+          </button>
+          <button
+            onClick={onOpenScanner}
+            className="flex flex-col items-center justify-center w-24 aspect-square bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
+          >
+            <QrCode className="w-8 h-8 mb-1" />
+            <span className="text-xs">QRスキャン</span>
+          </button>
+          <button
+            onClick={onLogout}
+            className="flex flex-col items-center justify-center w-24 aspect-square bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors"
+          >
+            <Lock className="w-8 h-8 mb-1" />
+            <span className="text-xs">ログアウト</span>
+          </button>
+        </div>
+      </div>
+      {/* PC用ダッシュボードタイトルとボタン */}
+      <div className="hidden sm:flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">ダッシュボード</h2>
         <div className="flex gap-3">
           <button
@@ -612,7 +640,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                       整理番号: {String(order.ticketNumber).padStart(3, "0")}
                     </p>
                     <p className="text-sm text-gray-600">
-                      ¥{order.totalAmount.toLocaleString()} ({order.items.length}点)
+                      ¥{order.totalAmount.toLocaleString()} ({order.items.reduce((sum, item) => sum + item.quantity, 0)}点)
                     </p>
                     <p className="text-xs text-gray-500">
                       {order.createdAt?.toDate ? 
