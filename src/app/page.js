@@ -311,18 +311,18 @@ const CartModal = ({ cart, setCart, onCheckout }) => {
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => updateQuantity(item.id, -1)}
-                  className="w-8 h-8 rounded-full bg-gray-200 text-lg font-bold"
+                  className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 text-2xl font-bold flex items-center justify-center hover:bg-blue-200 transition-colors"
                 >
-                  -
+                  −
                 </button>
-                <span className="w-8 text-center font-semibold">
+                <span className="w-10 text-center font-extrabold text-xl text-gray-900">
                   {item.quantity}
                 </span>
                 <button
                   onClick={() => updateQuantity(item.id, 1)}
-                  className="w-8 h-8 rounded-full bg-gray-200 text-lg font-bold"
+                  className="w-10 h-10 rounded-full bg-blue-100 text-blue-700 text-2xl font-bold flex items-center justify-center hover:bg-blue-200 transition-colors"
                 >
-                  +
+                  ＋
                 </button>
               </div>
             </div>
@@ -330,8 +330,8 @@ const CartModal = ({ cart, setCart, onCheckout }) => {
         </div>
         <div className="mt-6 border-t pt-4">
           <div className="flex justify-between items-center text-lg font-bold">
-            <span>合計 ({totalItems}点)</span>
-            <span>¥{totalAmount}</span>
+            <span className="text-gray-800">合計 <span className="text-blue-700">({totalItems}点)</span></span>
+            <span className="text-green-700 text-2xl">¥{totalAmount}</span>
           </div>
           <button
             onClick={onCheckout}
@@ -447,20 +447,22 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">
-        商品をえらんでください
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-        {products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            onAddToCart={handleAddToCart}
-          />
-        ))}
+    <div className="bg-white min-h-screen font-sans">
+      <div className="container mx-auto px-4 py-8">
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">
+          商品をえらんでください
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {products.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToCart={handleAddToCart}
+            />
+          ))}
+        </div>
+        <CartModal cart={cart} setCart={setCart} onCheckout={handleCheckout} />
       </div>
-      <CartModal cart={cart} setCart={setCart} onCheckout={handleCheckout} />
     </div>
   );
 };
