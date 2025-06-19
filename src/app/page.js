@@ -12,6 +12,8 @@ import {
   addDoc,
   getDoc,
   deleteDoc,
+  updateDoc,
+  setDoc,
 } from "firebase/firestore";
 import {
   Wifi,
@@ -23,7 +25,11 @@ import {
   BarChart2,
   AlertTriangle,
   Lock,
+  QrCode,
+  CheckCircle,
+  Camera,
 } from "lucide-react";
+import { Html5QrcodeScanner } from "html5-qrcode";
 
 // --- Firebaseの初期設定 ---
 // Your web app's Firebase configuration
@@ -460,7 +466,7 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
 };
 
 // --- スタッフ向け管理ページ ---
-const AdminPage = ({ products, orders, onLogout }) => {
+const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductManagement }) => {
   const totalRevenue = orders.reduce(
     (sum, order) => sum + order.totalAmount,
     0
@@ -477,17 +483,36 @@ const AdminPage = ({ products, orders, onLogout }) => {
     };
   });
 
+  const pendingOrders = orders.filter(order => order.status !== "completed");
+  const completedOrders = orders.filter(order => order.status === "completed");
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">ダッシュボード</h2>
-        <button
-          onClick={onLogout}
-          className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
-        >
-          <Lock size={16} />
-          ログアウト
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={onOpenProductManagement}
+            className="px-4 py-2 bg-purple-500 text-white font-semibold rounded-lg hover:bg-purple-600 transition-colors flex items-center gap-2"
+          >
+            <ShoppingCart size={16} />
+            商品管理
+          </button>
+          <button
+            onClick={onOpenScanner}
+            className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+          >
+            <QrCode size={16} />
+            QRスキャン
+          </button>
+          <button
+            onClick={onLogout}
+            className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+          >
+            <Lock size={16} />
+            ログアウト
+          </button>
+        </div>
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
@@ -496,9 +521,17 @@ const AdminPage = ({ products, orders, onLogout }) => {
           ¥{totalRevenue.toLocaleString()}
         </p>
         <p className="text-gray-500 mt-1">合計 {orders.length} 件の注文</p>
+        <div className="flex gap-4 mt-4">
+          <div className="bg-yellow-50 p-3 rounded-lg">
+            <p className="text-yellow-800 font-semibold">対応中: {pendingOrders.length}件</p>
+          </div>
+          <div className="bg-green-50 p-3 rounded-lg">
+            <p className="text-green-800 font-semibold">完了: {completedOrders.length}件</p>
+          </div>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* 在庫状況 */}
         <div className="bg-white p-6 rounded-xl shadow-lg">
           <h3 className="text-lg font-bold text-gray-700 mb-4">
@@ -557,6 +590,55 @@ const AdminPage = ({ products, orders, onLogout }) => {
             ))}
           </div>
         </div>
+
+        {/* 最新注文一覧 */}
+        <div className="bg-white p-6 rounded-xl shadow-lg">
+          <h3 className="text-lg font-bold text-gray-700 mb-4">
+            最新注文一覧
+          </h3>
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {orders.slice(0, 10).map((order) => (
+              <div
+                key={order.id}
+                className={`p-3 rounded-lg border ${
+                  order.status === "completed"
+                    ? "bg-green-50 border-green-200"
+                    : "bg-yellow-50 border-yellow-200"
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="font-semibold text-gray-800">
+                      整理番号: {String(order.ticketNumber).padStart(3, "0")}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      ¥{order.totalAmount.toLocaleString()} ({order.items.length}点)
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {order.createdAt?.toDate ? 
+                        order.createdAt.toDate().toLocaleString('ja-JP') : 
+                        new Date().toLocaleString('ja-JP')
+                      }
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {order.status === "completed" ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                        <span className="text-xs text-green-600 font-semibold">完了</span>
+                      </>
+                    ) : (
+                      <>
+                        <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
+                        <span className="text-xs text-yellow-600 font-semibold">対応中</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -581,8 +663,19 @@ const TicketPage = ({ lastOrder, setPage }) => {
   const ticketUrl = `${
     window.location.href.split("?")[0]
   }?page=ticket&orderId=${lastOrder.id}`;
+  
+  // QRコードにより実用的な情報を含める
+  const qrCodeData = {
+    ticketNumber: lastOrder.ticketNumber,
+    orderId: lastOrder.id,
+    items: lastOrder.items,
+    totalAmount: lastOrder.totalAmount,
+    createdAt: lastOrder.createdAt?.toDate ? lastOrder.createdAt.toDate().toISOString() : new Date().toISOString(),
+    status: lastOrder.status || "pending"
+  };
+  
   const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
-    ticketUrl
+    JSON.stringify(qrCodeData)
   )}`;
 
   return (
@@ -668,9 +761,494 @@ const firebaseConfig = {
   </div>
 );
 
+// --- QRコード読み取り画面 ---
+const QRScannerPage = ({ onClose, onOrderComplete }) => {
+  const [scannedData, setScannedData] = useState(null);
+  const [orderData, setOrderData] = useState(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState(null);
+  const [scanner, setScanner] = useState(null);
+
+  useEffect(() => {
+    // QRコードスキャナーの初期化
+    const html5QrcodeScanner = new Html5QrcodeScanner(
+      "qr-reader",
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      false
+    );
+
+    html5QrcodeScanner.render((decodedText) => {
+      handleQRCodeScanned(decodedText);
+    }, (error) => {
+      // エラーは無視（継続的にスキャン）
+    });
+
+    setScanner(html5QrcodeScanner);
+
+    return () => {
+      if (html5QrcodeScanner) {
+        html5QrcodeScanner.clear();
+      }
+    };
+  }, []);
+
+  const handleQRCodeScanned = async (decodedText) => {
+    try {
+      setError(null);
+      setScannedData(decodedText);
+      
+      // QRコードのデータを解析
+      let orderInfo;
+      try {
+        orderInfo = JSON.parse(decodedText);
+      } catch (e) {
+        // JSONでない場合は、URLパラメータから注文IDを抽出
+        const urlParams = new URLSearchParams(decodedText.split('?')[1]);
+        const orderId = urlParams.get('orderId');
+        if (!orderId) {
+          throw new Error('無効なQRコードです');
+        }
+        orderInfo = { orderId };
+      }
+
+      // Firestoreから注文データを取得
+      const orderDoc = await getDoc(doc(db, "orders", orderInfo.orderId));
+      if (!orderDoc.exists()) {
+        throw new Error('注文が見つかりません');
+      }
+
+      const order = { id: orderDoc.id, ...orderDoc.data() };
+      
+      // 既に完了済みの場合はエラー
+      if (order.status === "completed") {
+        throw new Error('この注文は既に完了済みです');
+      }
+
+      setOrderData(order);
+      
+      // スキャナーを停止
+      if (scanner) {
+        scanner.clear();
+      }
+    } catch (err) {
+      setError(err.message);
+      setOrderData(null);
+    }
+  };
+
+  const handleCompleteOrder = async () => {
+    if (!orderData) return;
+    
+    setIsProcessing(true);
+    try {
+      // 注文ステータスを完了に更新
+      await updateDoc(doc(db, "orders", orderData.id), {
+        status: "completed",
+        completedAt: new Date()
+      });
+
+      // 完了コールバックを呼び出し
+      onOrderComplete(orderData);
+      
+      // 画面を閉じる
+      onClose();
+    } catch (err) {
+      setError('注文の完了処理中にエラーが発生しました: ' + err.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleRetry = () => {
+    setScannedData(null);
+    setOrderData(null);
+    setError(null);
+    
+    // スキャナーを再初期化
+    if (scanner) {
+      scanner.clear();
+    }
+    
+    const html5QrcodeScanner = new Html5QrcodeScanner(
+      "qr-reader",
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      false
+    );
+
+    html5QrcodeScanner.render((decodedText) => {
+      handleQRCodeScanned(decodedText);
+    }, (error) => {
+      // エラーは無視
+    });
+
+    setScanner(html5QrcodeScanner);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
+            <Camera className="h-6 w-6" />
+            QRコード読み取り
+          </h2>
+          <button
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-800"
+          >
+            <X size={28} />
+          </button>
+        </div>
+
+        {!orderData && (
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">
+              お客様の整理券のQRコードをカメラにかざしてください
+            </p>
+            <div id="qr-reader" className="mx-auto"></div>
+            
+            {error && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-red-600 text-sm">{error}</p>
+                <button
+                  onClick={handleRetry}
+                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                >
+                  再試行
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {orderData && (
+          <div className="space-y-6">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <div className="flex items-center gap-2 text-green-700">
+                <CheckCircle className="h-5 w-5" />
+                <span className="font-semibold">QRコード読み取り成功</span>
+              </div>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h3 className="text-lg font-bold text-gray-800 mb-3">注文内容</h3>
+              <div className="space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">整理番号:</span>
+                  <span className="font-bold text-blue-600">
+                    {String(orderData.ticketNumber).padStart(3, "0")}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">注文時刻:</span>
+                  <span className="font-semibold">
+                    {orderData.createdAt?.toDate ? 
+                      orderData.createdAt.toDate().toLocaleString('ja-JP') : 
+                      new Date().toLocaleString('ja-JP')
+                    }
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">合計金額:</span>
+                  <span className="font-bold text-green-600">
+                    ¥{orderData.totalAmount.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border rounded-lg p-4">
+              <h4 className="font-semibold text-gray-800 mb-2">商品詳細</h4>
+              <div className="space-y-2">
+                {orderData.items.map((item, index) => (
+                  <div key={index} className="flex justify-between items-center">
+                    <span className="text-gray-700">{item.name}</span>
+                    <span className="font-semibold">
+                      {item.quantity}個 × ¥{item.price} = ¥{(item.quantity * item.price).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={handleCompleteOrder}
+                disabled={isProcessing}
+                className="flex-1 py-3 px-4 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    処理中...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4" />
+                    受け渡し完了
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- 商品管理コンポーネント ---
+const ProductManagement = ({ products, onClose, onProductUpdate }) => {
+  const [editingProduct, setEditingProduct] = useState(null);
+  const [newProduct, setNewProduct] = useState({
+    name: "",
+    price: 0,
+    stock: 0,
+    imageUrl: ""
+  });
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  const handleEditProduct = (product) => {
+    setEditingProduct({ ...product });
+    setIsAddingProduct(false);
+  };
+
+  const handleAddProduct = () => {
+    setNewProduct({
+      name: "",
+      price: 0,
+      stock: 0,
+      imageUrl: ""
+    });
+    setEditingProduct(null);
+    setIsAddingProduct(true);
+  };
+
+  const handleSaveProduct = async () => {
+    setIsProcessing(true);
+    try {
+      if (isAddingProduct) {
+        // 新しい商品を追加
+        const productId = `product_${Date.now()}`;
+        await setDoc(doc(db, "products", productId), {
+          ...newProduct,
+          price: parseInt(newProduct.price),
+          stock: parseInt(newProduct.stock)
+        });
+        setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
+        setIsAddingProduct(false);
+      } else if (editingProduct) {
+        // 既存商品を更新
+        await updateDoc(doc(db, "products", editingProduct.id), {
+          name: editingProduct.name,
+          price: parseInt(editingProduct.price),
+          stock: parseInt(editingProduct.stock),
+          imageUrl: editingProduct.imageUrl
+        });
+        setEditingProduct(null);
+      }
+      onProductUpdate();
+    } catch (error) {
+      console.error("商品の保存中にエラーが発生しました:", error);
+      alert("商品の保存に失敗しました: " + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (!confirm("この商品を削除しますか？")) return;
+    
+    setIsProcessing(true);
+    try {
+      await deleteDoc(doc(db, "products", productId));
+      onProductUpdate();
+    } catch (error) {
+      console.error("商品の削除中にエラーが発生しました:", error);
+      alert("商品の削除に失敗しました: " + error.message);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditingProduct(null);
+    setIsAddingProduct(false);
+    setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white w-full max-w-4xl rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
+          <div className="flex gap-3">
+            <button
+              onClick={handleAddProduct}
+              className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors"
+            >
+              新規追加
+            </button>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-800"
+            >
+              <X size={28} />
+            </button>
+          </div>
+        </div>
+
+        {/* 商品一覧 */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+          {products.map((product) => (
+            <div key={product.id} className="bg-gray-50 rounded-lg p-4 border">
+              <div className="flex justify-between items-start mb-2">
+                <h3 className="font-semibold text-gray-800">{product.name}</h3>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleEditProduct(product)}
+                    className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+                  >
+                    編集
+                  </button>
+                  <button
+                    onClick={() => handleDeleteProduct(product.id)}
+                    className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                  >
+                    削除
+                  </button>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">¥{product.price.toLocaleString()}</p>
+              <p className={`text-sm font-semibold ${
+                product.stock > 10 ? "text-green-600" : 
+                product.stock > 0 ? "text-yellow-600" : "text-red-600"
+              }`}>
+                在庫: {product.stock}個
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {/* 商品編集フォーム */}
+        {(editingProduct || isAddingProduct) && (
+          <div className="bg-gray-50 rounded-lg p-6 border">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">
+              {isAddingProduct ? "新規商品追加" : "商品編集"}
+            </h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  商品名
+                </label>
+                <input
+                  type="text"
+                  value={isAddingProduct ? newProduct.name : editingProduct.name}
+                  onChange={(e) => {
+                    if (isAddingProduct) {
+                      setNewProduct({ ...newProduct, name: e.target.value });
+                    } else {
+                      setEditingProduct({ ...editingProduct, name: e.target.value });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="商品名を入力"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  価格 (円)
+                </label>
+                <input
+                  type="number"
+                  value={isAddingProduct ? newProduct.price : editingProduct.price}
+                  onChange={(e) => {
+                    if (isAddingProduct) {
+                      setNewProduct({ ...newProduct, price: e.target.value });
+                    } else {
+                      setEditingProduct({ ...editingProduct, price: e.target.value });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="価格を入力"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  在庫数
+                </label>
+                <input
+                  type="number"
+                  value={isAddingProduct ? newProduct.stock : editingProduct.stock}
+                  onChange={(e) => {
+                    if (isAddingProduct) {
+                      setNewProduct({ ...newProduct, stock: e.target.value });
+                    } else {
+                      setEditingProduct({ ...editingProduct, stock: e.target.value });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="在庫数を入力"
+                  min="0"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  画像URL
+                </label>
+                <input
+                  type="text"
+                  value={isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl}
+                  onChange={(e) => {
+                    if (isAddingProduct) {
+                      setNewProduct({ ...newProduct, imageUrl: e.target.value });
+                    } else {
+                      setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="画像URLを入力"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleSaveProduct}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              >
+                {isProcessing ? "保存中..." : "保存"}
+              </button>
+              <button
+                onClick={handleCancel}
+                className="px-4 py-2 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                キャンセル
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // --- メインコンポーネント ---
 export default function App() {
-  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket'
+  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket', 'productManagement'
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lastOrder, setLastOrder] = useState(null);
@@ -678,6 +1256,7 @@ export default function App() {
   const [firebaseError, setFirebaseError] = useState(null);
   const [adminLoginModalOpen, setAdminLoginModalOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [qrScannerOpen, setQrScannerOpen] = useState(false);
 
   // 管理画面ボタンクリック時の処理
   const handleAdminClick = () => {
@@ -704,6 +1283,38 @@ export default function App() {
   const handleAdminLogout = () => {
     setIsAdminAuthenticated(false);
     setPage("customer");
+  };
+
+  // QRスキャナーを開く
+  const handleOpenScanner = () => {
+    setQrScannerOpen(true);
+  };
+
+  // QRスキャナーを閉じる
+  const handleCloseScanner = () => {
+    setQrScannerOpen(false);
+  };
+
+  // 商品管理を開く
+  const handleOpenProductManagement = () => {
+    setPage("productManagement");
+  };
+
+  // 商品管理を閉じる
+  const handleCloseProductManagement = () => {
+    setPage("admin");
+  };
+
+  // 注文完了時の処理
+  const handleOrderComplete = (completedOrder) => {
+    console.log('注文完了:', completedOrder);
+    // 必要に応じて完了通知などを追加
+  };
+
+  // 商品更新時の処理
+  const handleProductUpdate = () => {
+    console.log('商品が更新されました');
+    // 必要に応じて更新通知などを追加
   };
 
   // Firestoreからデータをリアルタイムで購読する
@@ -820,9 +1431,25 @@ export default function App() {
           />
         );
       case "admin":
-        return <AdminPage products={products} orders={orders} onLogout={handleAdminLogout} />;
+        return (
+          <AdminPage 
+            products={products} 
+            orders={orders} 
+            onLogout={handleAdminLogout}
+            onOpenScanner={handleOpenScanner}
+            onOpenProductManagement={handleOpenProductManagement}
+          />
+        );
       case "ticket":
         return <TicketPage lastOrder={lastOrder} setPage={setPage} />;
+      case "productManagement":
+        return (
+          <ProductManagement 
+            products={products} 
+            onClose={handleCloseProductManagement}
+            onProductUpdate={handleProductUpdate}
+          />
+        );
       default:
         return (
           <CustomerPage
@@ -836,7 +1463,7 @@ export default function App() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans">
-      {page !== "ticket" && (
+      {page !== "ticket" && page !== "productManagement" && (
         <AppHeader 
           page={page} 
           setPage={setPage} 
@@ -851,6 +1478,14 @@ export default function App() {
         onClose={handleCloseAdminLoginModal}
         onLogin={handleAdminLogin}
       />
+      
+      {/* QRコード読み取り画面 */}
+      {qrScannerOpen && (
+        <QRScannerPage
+          onClose={handleCloseScanner}
+          onOrderComplete={handleOrderComplete}
+        />
+      )}
       
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
