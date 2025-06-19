@@ -135,7 +135,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-white/70 flex justify-center items-center z-50">
       <div className="bg-white w-full max-w-md rounded-2xl p-8 shadow-xl">
         <div className="text-center mb-6">
           <Lock className="mx-auto h-12 w-12 text-blue-500 mb-4" />
@@ -153,7 +153,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
               placeholder="パスワードを入力"
               required
             />
@@ -287,7 +287,7 @@ const CartModal = ({ cart, setCart, onCheckout }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-end z-50">
+    <div className="fixed inset-0 bg-white/70 flex justify-center items-end z-50">
       <div className="bg-white w-full max-w-lg rounded-t-2xl p-6 shadow-xl animate-slide-up">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">注文内容の確認</h2>
@@ -885,7 +885,7 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-white/70 flex justify-center items-center z-50">
       <div className="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -1085,7 +1085,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-white/70 flex justify-center items-center z-50">
       <div className="bg-white w-full max-w-4xl rounded-2xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">商品管理</h2>
@@ -1159,7 +1159,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, name: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="商品名を入力"
                 />
               </div>
@@ -1178,7 +1178,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, price: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="価格を入力"
                   min="0"
                 />
@@ -1198,7 +1198,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, stock: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="在庫数を入力"
                   min="0"
                 />
@@ -1218,7 +1218,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
                   placeholder="画像URLを入力"
                 />
               </div>
