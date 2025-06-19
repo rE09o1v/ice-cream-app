@@ -11,6 +11,7 @@ import {
   runTransaction,
   addDoc,
   getDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import {
   Wifi,
@@ -50,6 +51,10 @@ if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
 const setupInitialData = async () => {
   if (!db) return; // DBが初期化されていなければ何もしない
   console.log("初期データのセットアップを確認します...");
+  
+  // データをリセットする場合は、この行をコメントアウトしてください
+  //await deleteDoc(doc(db, "metadata", "setupComplete"));
+  
   const metadataDoc = await getDoc(doc(db, "metadata", "setupComplete"));
   if (!metadataDoc.exists()) {
     console.log("初期データを作成します...");
@@ -59,28 +64,28 @@ const setupInitialData = async () => {
         name: "濃厚バニラ",
         price: 300,
         stock: 50,
-        imageUrl: "images/choco-mint.jpg",
+        imageUrl: "/images/choco-mint.jpg",
       },
       {
         id: "chocolate",
         name: "とろけるチョコ",
         price: 350,
         stock: 50,
-        imageUrl: "https://placehold.co/400x300/603813/FFF?text=チョコ",
+        imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
       },
       {
         id: "strawberry",
         name: "果肉いちご",
         price: 350,
         stock: 40,
-        imageUrl: "https://placehold.co/400x300/F472B6/FFF?text=いちご",
+        imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
       },
       {
         id: "matcha",
         name: "本格抹茶",
         price: 400,
         stock: 30,
-        imageUrl: "https://placehold.co/400x300/166534/FFF?text=抹茶",
+        imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
       },
     ];
     await runTransaction(db, async (transaction) => {
