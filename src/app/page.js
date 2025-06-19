@@ -379,12 +379,21 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
     try {
       // Firestoreのトランザクションを使って、在庫の更新と注文の記録を安全に行う
       const newOrderData = await runTransaction(db, async (transaction) => {
+        // すべての読み取りを先に実行
         const productRefs = orderItems.map((item) =>
           doc(db, "products", item.productId)
         );
         const productDocs = await Promise.all(
           productRefs.map((ref) => transaction.get(ref))
         );
+
+        // 最新の注文番号を取得（読み取り）
+        const latestOrderRef = doc(db, "metadata", "latestOrder");
+        const latestOrderSnapshot = await transaction.get(latestOrderRef);
+        const lastOrderNumber = latestOrderSnapshot.exists()
+          ? latestOrderSnapshot.data().number
+          : 0;
+        const newOrderNumber = lastOrderNumber + 1;
 
         // 在庫チェック
         for (let i = 0; i < productDocs.length; i++) {
@@ -398,6 +407,7 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
           }
         }
 
+        // すべての書き込みを後で実行
         // 在庫を減らす
         productDocs.forEach((productDoc, i) => {
           const newStock = productDoc.data().stock - orderItems[i].quantity;
@@ -405,14 +415,6 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
         });
 
         // 注文記録を作成
-        // 最新の注文番号を取得
-        const latestOrderRef = doc(db, "metadata", "latestOrder");
-        const latestOrderSnapshot = await transaction.get(latestOrderRef);
-        const lastOrderNumber = latestOrderSnapshot.exists()
-          ? latestOrderSnapshot.data().number
-          : 0;
-        const newOrderNumber = lastOrderNumber + 1;
-
         const newOrderRef = doc(collection(db, "orders"));
         transaction.set(newOrderRef, {
           items: orderItems,
@@ -421,6 +423,8 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
           ticketNumber: newOrderNumber,
           status: "pending", // ステータスを追加
         });
+
+        // 最新注文番号を更新
         transaction.set(latestOrderRef, { number: newOrderNumber });
 
         return { id: newOrderRef.id, ticketNumber: newOrderNumber };
