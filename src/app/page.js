@@ -59,7 +59,7 @@ const setupInitialData = async () => {
         name: "濃厚バニラ",
         price: 300,
         stock: 50,
-        imageUrl: "https://placehold.co/400x300/F2EAD3/333?text=バニラ",
+        imageUrl: "images/choco-mint.jpg",
       },
       {
         id: "chocolate",
