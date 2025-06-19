@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -137,9 +138,11 @@ const AppHeader = ({ page, setPage }) => (
 // --- 商品カードコンポーネント ---
 const ProductCard = ({ product, onAddToCart }) => (
   <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:scale-105">
-    <img
+    <Image
       src={product.imageUrl}
       alt={product.name}
+      width={400}
+      height={160}
       className="w-full h-40 object-cover"
     />
     <div className="p-4">
@@ -507,11 +510,11 @@ const TicketPage = ({ lastOrder, setPage }) => {
         </div>
 
         <div className="my-6">
-          <img
+          <Image
             src={qrCodeApiUrl}
             alt="整理券のQRコード"
-            width="180"
-            height="180"
+            width={180}
+            height={180}
             className="mx-auto"
           />
         </div>
@@ -555,7 +558,7 @@ const firebaseConfig = {
       </div>
       <p className="mt-4 text-gray-600">
         上記のコード内の{" "}
-        <code className="bg-gray-200 p-1 rounded">"YOUR_API_KEY"</code>{" "}
+        <code className="bg-gray-200 p-1 rounded">&quot;YOUR_API_KEY&quot;</code>{" "}
         などの値を、
         <a
           href="https://console.firebase.google.com/"
@@ -579,11 +582,6 @@ export default function App() {
   const [lastOrder, setLastOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firebaseError, setFirebaseError] = useState(null);
-
-  // ★ 変更点: Firebase設定がデフォルトのままかチェック
-  if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
-    return <SetupGuide />;
-  }
 
   // Firestoreからデータをリアルタイムで購読する
   useEffect(() => {
@@ -661,6 +659,9 @@ export default function App() {
   }, []);
 
   const renderPage = () => {
+    if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
+      return <SetupGuide />;
+    }
     if (firebaseError) {
       return (
         <div className="container mx-auto px-4 py-8 text-center text-red-700">
