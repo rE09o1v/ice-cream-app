@@ -247,7 +247,7 @@ const ProductCard = ({ product, onAddToCart }) => (
         在庫: {product.stock > 0 ? `あと ${product.stock} 個` : "売り切れ"}
       </p>
       <button
-        onClick={() => onAddToCart(product)}
+        onClick={e => { e.stopPropagation(); onAddToCart(product); }}
         disabled={product.stock === 0}
         className="w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-300 flex items-center justify-center gap-2"
       >
@@ -259,7 +259,7 @@ const ProductCard = ({ product, onAddToCart }) => (
 );
 
 // --- カートモーダル ---
-const CartModal = ({ cart, setCart, onCheckout }) => {
+const CartModal = ({ cart, setCart, onCheckout, onClose }) => {
   if (Object.keys(cart).length === 0) return null;
 
   const totalAmount = Object.values(cart).reduce(
@@ -292,7 +292,7 @@ const CartModal = ({ cart, setCart, onCheckout }) => {
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">注文内容の確認</h2>
           <button
-            onClick={() => setCart({})}
+            onClick={onClose}
             className="text-gray-500 hover:text-gray-800"
           >
             <X size={28} />
@@ -352,21 +352,21 @@ const CartModal = ({ cart, setCart, onCheckout }) => {
 };
 
 // --- 顧客向け注文ページ ---
-const CustomerPage = ({ products, setPage, setLastOrder }) => {
-  const [cart, setCart] = useState({});
-
+const CustomerPage = ({ products, setPage, setLastOrder, cart, setCart, cartModalOpen, setCartModalOpen }) => {
   const handleAddToCart = (product) => {
     setCart((prevCart) => {
+      console.log('setCart called for', product.name);
       const newCart = { ...prevCart };
       if (newCart[product.id]) {
         if (newCart[product.id].quantity < product.stock) {
-          newCart[product.id].quantity++;
+          newCart[product.id].quantity = newCart[product.id].quantity + 1;
         }
       } else {
         newCart[product.id] = { ...product, quantity: 1 };
       }
       return newCart;
     });
+    setCartModalOpen(true);
   };
 
   const handleCheckout = async () => {
@@ -461,7 +461,19 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
             />
           ))}
         </div>
-        <CartModal cart={cart} setCart={setCart} onCheckout={handleCheckout} />
+        <button
+          className="fixed top-4 right-4 z-50 bg-blue-500 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center text-xs font-bold hover:bg-blue-600 transition-colors"
+          onClick={() => setCartModalOpen(true)}
+        >
+          <ShoppingCart size={28} />
+          <span>カート</span>
+          {Object.keys(cart).length > 0 && (
+            <span className="absolute top-1 right-1 bg-red-500 text-white rounded-full px-2 text-xs">{Object.values(cart).reduce((sum, item) => sum + item.quantity, 0)}</span>
+          )}
+        </button>
+        {cartModalOpen && (
+          <CartModal cart={cart} setCart={setCart} onCheckout={handleCheckout} onClose={() => setCartModalOpen(false)} />
+        )}
       </div>
     </div>
   );
@@ -1287,6 +1299,8 @@ export default function App() {
   const [adminLoginModalOpen, setAdminLoginModalOpen] = useState(false);
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
+  const [cartModalOpen, setCartModalOpen] = useState(false);
+  const [cart, setCart] = useState({});
 
   // 管理画面ボタンクリック時の処理
   const handleAdminClick = () => {
@@ -1458,6 +1472,10 @@ export default function App() {
             products={products}
             setPage={setPage}
             setLastOrder={setLastOrder}
+            cart={cart}
+            setCart={setCart}
+            cartModalOpen={cartModalOpen}
+            setCartModalOpen={setCartModalOpen}
           />
         );
       case "admin":
@@ -1486,6 +1504,10 @@ export default function App() {
             products={products}
             setPage={setPage}
             setLastOrder={setLastOrder}
+            cart={cart}
+            setCart={setCart}
+            cartModalOpen={cartModalOpen}
+            setCartModalOpen={setCartModalOpen}
           />
         );
     }
