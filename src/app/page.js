@@ -186,12 +186,7 @@ const AppHeader = ({ page, setPage, onAdminClick }) => (
   <header className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-40">
     <div className="container mx-auto px-4 py-3">
       <div className="flex justify-between items-center">
-        <div className="text-xl font-bold text-gray-800">🍦 ICE CREAM SHOP</div>
-        <div className="flex items-center space-x-2 text-sm text-gray-500">
-          <span>8:40 PM</span>
-          <Wifi size={16} />
-          <BatteryFull size={16} />
-        </div>
+        <div className="text-xl font-bold text-gray-800">🍦 Welcome to 1-F_BlueSeal</div>
       </div>
     </div>
     <nav className="bg-gray-100">
