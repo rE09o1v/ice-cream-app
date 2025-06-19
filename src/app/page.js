@@ -21,6 +21,7 @@ import {
   Ticket,
   BarChart2,
   AlertTriangle,
+  Lock,
 } from "lucide-react";
 
 // --- Firebaseの初期設定 ---
@@ -95,8 +96,88 @@ const setupInitialData = async () => {
   }
 };
 
+// --- 管理画面ログインモーダル ---
+const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    // パスワードをチェック（デフォルト: "admin123"）
+    const correctPassword = "staff1fstd";
+    
+    if (password === correctPassword) {
+      // ログイン成功
+      onLogin();
+      setPassword("");
+    } else {
+      setError("パスワードが正しくありません");
+    }
+    
+    setIsLoading(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
+      <div className="bg-white w-full max-w-md rounded-2xl p-8 shadow-xl">
+        <div className="text-center mb-6">
+          <Lock className="mx-auto h-12 w-12 text-blue-500 mb-4" />
+          <h2 className="text-2xl font-bold text-gray-800">管理者認証</h2>
+          <p className="text-gray-600 mt-2">管理画面にアクセスするにはパスワードを入力してください</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              パスワード
+            </label>
+            <input
+              type="password"
+              id="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="パスワードを入力"
+              required
+            />
+          </div>
+
+          {error && (
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="flex-1 py-3 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {isLoading ? "認証中..." : "ログイン"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
 // --- ヘッダーコンポーネント ---
-const AppHeader = ({ page, setPage }) => (
+const AppHeader = ({ page, setPage, onAdminClick }) => (
   <header className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-40">
     <div className="container mx-auto px-4 py-3">
       <div className="flex justify-between items-center">
@@ -121,7 +202,7 @@ const AppHeader = ({ page, setPage }) => (
           <ShoppingCart size={16} /> 注文
         </button>
         <button
-          onClick={() => setPage("admin")}
+          onClick={onAdminClick}
           className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 ${
             page === "admin"
               ? "text-blue-600 border-b-2 border-blue-600"
@@ -375,7 +456,7 @@ const CustomerPage = ({ products, setPage, setLastOrder }) => {
 };
 
 // --- スタッフ向け管理ページ ---
-const AdminPage = ({ products, orders }) => {
+const AdminPage = ({ products, orders, onLogout }) => {
   const totalRevenue = orders.reduce(
     (sum, order) => sum + order.totalAmount,
     0
@@ -394,7 +475,16 @@ const AdminPage = ({ products, orders }) => {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h2 className="text-2xl font-bold text-gray-800 mb-6">ダッシュボード</h2>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-2xl font-bold text-gray-800">ダッシュボード</h2>
+        <button
+          onClick={onLogout}
+          className="px-4 py-2 bg-red-500 text-white font-semibold rounded-lg hover:bg-red-600 transition-colors flex items-center gap-2"
+        >
+          <Lock size={16} />
+          ログアウト
+        </button>
+      </div>
 
       <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
         <h3 className="text-lg font-bold text-gray-700 mb-4">全体の売上</h3>
@@ -582,6 +672,35 @@ export default function App() {
   const [lastOrder, setLastOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firebaseError, setFirebaseError] = useState(null);
+  const [adminLoginModalOpen, setAdminLoginModalOpen] = useState(false);
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+
+  // 管理画面ボタンクリック時の処理
+  const handleAdminClick = () => {
+    if (isAdminAuthenticated) {
+      setPage("admin");
+    } else {
+      setAdminLoginModalOpen(true);
+    }
+  };
+
+  // 管理画面ログイン成功時の処理
+  const handleAdminLogin = () => {
+    setIsAdminAuthenticated(true);
+    setAdminLoginModalOpen(false);
+    setPage("admin");
+  };
+
+  // 管理画面ログインモーダルを閉じる
+  const handleCloseAdminLoginModal = () => {
+    setAdminLoginModalOpen(false);
+  };
+
+  // 管理画面ログアウト処理
+  const handleAdminLogout = () => {
+    setIsAdminAuthenticated(false);
+    setPage("customer");
+  };
 
   // Firestoreからデータをリアルタイムで購読する
   useEffect(() => {
@@ -697,7 +816,7 @@ export default function App() {
           />
         );
       case "admin":
-        return <AdminPage products={products} orders={orders} />;
+        return <AdminPage products={products} orders={orders} onLogout={handleAdminLogout} />;
       case "ticket":
         return <TicketPage lastOrder={lastOrder} setPage={setPage} />;
       default:
@@ -713,8 +832,22 @@ export default function App() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans">
-      {page !== "ticket" && <AppHeader page={page} setPage={setPage} />}
+      {page !== "ticket" && (
+        <AppHeader 
+          page={page} 
+          setPage={setPage} 
+          onAdminClick={handleAdminClick}
+        />
+      )}
       <main>{renderPage()}</main>
+      
+      {/* 管理画面ログインモーダル */}
+      <AdminLoginModal
+        isOpen={adminLoginModalOpen}
+        onClose={handleCloseAdminLoginModal}
+        onLogin={handleAdminLogin}
+      />
+      
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
         body {
