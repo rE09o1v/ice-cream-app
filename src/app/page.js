@@ -153,14 +153,14 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
               placeholder="パスワードを入力"
               required
             />
           </div>
 
           {error && (
-            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg">
+            <div className="text-red-600 text-sm text-center bg-red-50 p-3 rounded-lg border border-red-200">
               {error}
             </div>
           )}
@@ -169,7 +169,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors bg-white"
             >
               キャンセル
             </button>
@@ -682,7 +682,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                         <span className="text-xs text-yellow-600 font-semibold">対応中</span>
                         <button
                           onClick={() => onCancelOrder(order.id)}
-                          className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                          className="ml-2 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors font-medium"
                         >
                           取り消し
                         </button>
@@ -848,12 +848,6 @@ const ThankYouPage = ({ completedOrder, setPage }) => {
             className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-600 transition-colors duration-300"
           >
             新しい注文をする
-          </button>
-          <button
-            onClick={() => setPage("admin")}
-            className="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-600 transition-colors duration-300"
-          >
-            管理画面に戻る
           </button>
         </div>
       </div>
@@ -1063,10 +1057,10 @@ const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
 
             {error && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <p className="text-red-600 text-sm">{error}</p>
+                <p className="text-red-700 text-sm font-medium">{error}</p>
                 <button
                   onClick={handleRetry}
-                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                  className="mt-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
                 >
                   再試行
                 </button>
@@ -1312,7 +1306,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, name: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                   placeholder="商品名を入力"
                 />
               </div>
@@ -1331,7 +1325,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, price: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                   placeholder="価格を入力"
                   min="0"
                 />
@@ -1351,7 +1345,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, stock: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                   placeholder="在庫数を入力"
                   min="0"
                 />
@@ -1371,7 +1365,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                       setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
                     }
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
                   placeholder="画像URLを入力"
                 />
               </div>
