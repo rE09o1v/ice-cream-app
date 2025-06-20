@@ -1,36 +1,186 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 🍦 アイスクリーム注文アプリ (1-F_BlueSeal)
 
-## Getting Started
+## 概要
 
-First, run the development server:
+このアプリは、アイスクリーム店での注文から商品受け渡しまでをデジタル化した注文システムです。お客様が商品を選択して注文し、整理券を受け取り、スタッフがQRコードを読み取って商品を受け渡すまでの一連の流れを管理できます。
+
+## 主な機能
+
+### お客様向け機能
+- 🛒 **商品選択・注文**: 商品カタログからアイスクリームを選択して注文
+- 📱 **整理券表示**: QRコード付きの整理券を表示
+- 🔄 **整理券再表示**: 整理券URLをコピーして後で再表示可能
+- ✅ **受け渡し完了通知**: 商品受け渡し完了時に感謝メッセージを表示
+
+### スタッフ向け機能
+- 📊 **ダッシュボード**: 売上、在庫状況、注文状況をリアルタイム表示
+- 📷 **QRコード読み取り**: お客様の整理券をスキャンして注文確認
+- 📦 **商品管理**: 商品の追加・編集・削除、在庫管理
+- ❌ **注文取り消し**: 対応中の注文を取り消し可能
+
+## セットアップ
+
+### 1. Firebase設定
+
+1. [Firebase Console](https://console.firebase.google.com/) でプロジェクトを作成
+2. Firestore Databaseを有効化
+3. Webアプリを追加して設定情報を取得
+4. `src/app/page.js` の `firebaseConfig` を実際の設定に更新
+
+```javascript
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_AUTH_DOMAIN",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_STORAGE_BUCKET",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+```
+
+### 2. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 3. アプリの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 使い方
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### お客様の利用方法
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+#### 1. 商品選択・注文
+1. アプリを開く（デフォルトで注文ページが表示）
+2. 商品カードから欲しいアイスクリームを選択
+3. 「カートに入れる」ボタンをタップ
+4. カートアイコンをタップして注文内容を確認
+5. 「注文を確定して整理券を受け取る」ボタンをタップ
 
-## Learn More
+#### 2. 整理券の確認
+- 整理番号とQRコードが表示されます
+- 商品受け取り時にこの画面をスタッフに見せてください
+- 「整理券URLをコピー」ボタンでURLを保存できます
 
-To learn more about Next.js, take a look at the following resources:
+#### 3. 商品受け取り
+- スタッフがQRコードを読み取ると、自動的に感謝メッセージページに切り替わります
+- 「新しい注文をする」ボタンで再度注文できます
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### スタッフの利用方法
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+#### 1. 管理画面へのアクセス
+1. ヘッダーの「管理」タブをタップ
+2. パスワードを入力（デフォルト: `staff1fstd`）
+3. 管理画面にアクセス
 
-## Deploy on Vercel
+#### 2. ダッシュボードの確認
+- **全体の売上**: 完了済み注文の合計売上を表示
+- **在庫状況**: 各商品のリアルタイム在庫数を表示
+- **注文状況**: 対応中・完了・取り消しの注文数を表示
+- **最新注文一覧**: 最新10件の注文を表示
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+#### 3. QRコード読み取り
+1. 「QRスキャン」ボタンをタップ
+2. お客様の整理券のQRコードをカメラにかざす
+3. 注文内容を確認
+4. 「受け渡し完了」ボタンをタップ
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+#### 4. 商品管理
+1. 「商品管理」ボタンをタップ
+2. 商品の追加・編集・削除が可能
+3. 在庫数の調整も可能
+
+#### 5. 注文取り消し
+- 最新注文一覧で「対応中」の注文に「取り消し」ボタンが表示
+- 取り消し時は在庫も自動的に戻されます
+
+## 技術仕様
+
+### フレームワーク
+- **Next.js**: Reactベースのフルスタックフレームワーク
+- **Tailwind CSS**: スタイリング
+- **Firebase**: バックエンド（Firestore、認証）
+
+### 主要ライブラリ
+- **html5-qrcode**: QRコード読み取り
+- **lucide-react**: アイコン
+- **firebase/firestore**: データベース操作
+
+### データ構造
+
+#### 商品 (products)
+```javascript
+{
+  id: "商品ID",
+  name: "商品名",
+  price: 価格,
+  stock: 在庫数,
+  imageUrl: "画像URL"
+}
+```
+
+#### 注文 (orders)
+```javascript
+{
+  id: "注文ID",
+  items: [商品リスト],
+  totalAmount: 合計金額,
+  createdAt: 作成日時,
+  ticketNumber: 整理番号,
+  status: "pending|completed|cancelled",
+  completedAt: 完了日時（完了時のみ）
+}
+```
+
+## 注意事項
+
+### セキュリティ
+- 管理画面のパスワードは適切に管理してください
+- Firebaseのセキュリティルールを設定することを推奨します
+
+### パフォーマンス
+- 大量の注文がある場合は、ページネーションの実装を検討してください
+- 画像は最適化されたサイズを使用してください
+
+### バックアップ
+- 重要なデータは定期的にバックアップを取ることを推奨します
+
+## トラブルシューティング
+
+### よくある問題
+
+#### QRコードが読み取れない
+- カメラの権限を確認
+- 明るい環境で読み取りを試行
+- QRコードが汚れていないか確認
+
+#### 注文が反映されない
+- インターネット接続を確認
+- Firebaseの設定を確認
+- ブラウザを再読み込み
+
+#### 管理画面にアクセスできない
+- パスワードを確認
+- ブラウザのキャッシュをクリア
+- 再度ログインを試行
+
+## 今後の拡張予定
+
+- [ ] 複数店舗対応
+- [ ] 決済機能の統合
+- [ ] 顧客管理機能
+- [ ] 売上レポート機能
+- [ ] プッシュ通知機能
+- [ ] 多言語対応
+
+## ライセンス
+
+このプロジェクトはMITライセンスの下で公開されています。
+
+## サポート
+
+問題や質問がある場合は、GitHubのIssuesページでお知らせください。
