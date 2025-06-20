@@ -57,10 +57,10 @@ if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
 const setupInitialData = async () => {
   if (!db) return; // DBが初期化されていなければ何もしない
   console.log("初期データのセットアップを確認します...");
-  
+
   // データをリセットする場合は、この行をコメントアウトしてください
   //await deleteDoc(doc(db, "metadata", "setupComplete"));
-  
+
   const metadataDoc = await getDoc(doc(db, "metadata", "setupComplete"));
   if (!metadataDoc.exists()) {
     console.log("初期データを作成します...");
@@ -120,7 +120,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
 
     // パスワードをチェック（デフォルト: "admin123"）
     const correctPassword = "staff1fstd";
-    
+
     if (password === correctPassword) {
       // ログイン成功
       onLogin();
@@ -128,7 +128,7 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
     } else {
       setError("パスワードが正しくありません");
     }
-    
+
     setIsLoading(false);
   };
 
@@ -199,21 +199,19 @@ const AppHeader = ({ page, setPage, onAdminClick }) => (
       <div className="container mx-auto px-4 flex justify-around">
         <button
           onClick={() => setPage("customer")}
-          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 ${
-            page === "customer"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600"
-          }`}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 ${page === "customer"
+            ? "text-blue-600 border-b-2 border-blue-600"
+            : "text-gray-600"
+            }`}
         >
           <ShoppingCart size={16} /> 注文
         </button>
         <button
           onClick={onAdminClick}
-          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 ${
-            page === "admin"
-              ? "text-blue-600 border-b-2 border-blue-600"
-              : "text-gray-600"
-          }`}
+          className={`flex-1 py-3 text-sm font-semibold flex items-center justify-center gap-2 ${page === "admin"
+            ? "text-blue-600 border-b-2 border-blue-600"
+            : "text-gray-600"
+            }`}
         >
           <BarChart2 size={16} /> 管理
         </button>
@@ -236,13 +234,12 @@ const ProductCard = ({ product, onAddToCart }) => (
       <h3 className="text-lg font-bold text-gray-800">{product.name}</h3>
       <p className="text-xl font-light text-gray-700 mt-1">¥{product.price}</p>
       <p
-        className={`text-sm font-semibold mt-2 ${
-          product.stock > 10
-            ? "text-green-600"
-            : product.stock > 0
+        className={`text-sm font-semibold mt-2 ${product.stock > 10
+          ? "text-green-600"
+          : product.stock > 0
             ? "text-yellow-600"
             : "text-red-600"
-        }`}
+          }`}
       >
         在庫: {product.stock > 0 ? `あと ${product.stock} 個` : "売り切れ"}
       </p>
@@ -480,13 +477,16 @@ const CustomerPage = ({ products, setPage, setLastOrder, cart, setCart, cartModa
 };
 
 // --- スタッフ向け管理ページ ---
-const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductManagement }) => {
-  const totalRevenue = orders.reduce(
+const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductManagement, onCancelOrder }) => {
+  // 完了した注文のみを売上計算に含める
+  const completedOrders = orders.filter(order => order.status === "completed");
+  const totalRevenue = completedOrders.reduce(
     (sum, order) => sum + order.totalAmount,
     0
   );
+
   const salesByProduct = products.map((product) => {
-    const soldQuantity = orders.reduce((sum, order) => {
+    const soldQuantity = completedOrders.reduce((sum, order) => {
       const item = order.items.find((i) => i.productId === product.id);
       return sum + (item ? item.quantity : 0);
     }, 0);
@@ -497,8 +497,8 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
     };
   });
 
-  const pendingOrders = orders.filter(order => order.status !== "completed");
-  const completedOrders = orders.filter(order => order.status === "completed");
+  const pendingOrders = orders.filter(order => order.status === "pending");
+  const cancelledOrders = orders.filter(order => order.status === "cancelled");
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -558,17 +558,20 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
       </div>
 
       <div className="bg-white p-6 rounded-xl shadow-lg mb-8">
-        <h3 className="text-lg font-bold text-gray-700 mb-4">全体の売上</h3>
+        <h3 className="text-lg font-bold text-gray-700 mb-4">完了済み注文の売上</h3>
         <p className="text-4xl font-extrabold text-blue-600">
           ¥{totalRevenue.toLocaleString()}
         </p>
-        <p className="text-gray-500 mt-1">合計 {orders.length} 件の注文</p>
+        <p className="text-gray-500 mt-1">完了済み {completedOrders.length} 件の注文</p>
         <div className="flex gap-4 mt-4">
           <div className="bg-yellow-50 p-3 rounded-lg">
             <p className="text-yellow-800 font-semibold">対応中: {pendingOrders.length}件</p>
           </div>
           <div className="bg-green-50 p-3 rounded-lg">
             <p className="text-green-800 font-semibold">完了: {completedOrders.length}件</p>
+          </div>
+          <div className="bg-red-50 p-3 rounded-lg">
+            <p className="text-red-800 font-semibold">取り消し: {cancelledOrders.length}件</p>
           </div>
         </div>
       </div>
@@ -585,26 +588,24 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-semibold text-gray-600">{p.name}</span>
                   <span
-                    className={`font-bold ${
-                      p.stock > 10
-                        ? "text-green-600"
-                        : p.stock > 0
+                    className={`font-bold ${p.stock > 10
+                      ? "text-green-600"
+                      : p.stock > 0
                         ? "text-yellow-600"
                         : "text-red-600"
-                    }`}
+                      }`}
                   >
                     {p.stock} 個
                   </span>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2.5">
                   <div
-                    className={`h-2.5 rounded-full ${
-                      p.stock > 10
-                        ? "bg-green-500"
-                        : p.stock > 0
+                    className={`h-2.5 rounded-full ${p.stock > 10
+                      ? "bg-green-500"
+                      : p.stock > 0
                         ? "bg-yellow-500"
                         : "bg-red-500"
-                    }`}
+                      }`}
                     style={{ width: `${(p.stock / 50) * 100}%` }}
                   ></div>
                 </div>
@@ -616,7 +617,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
         {/* 商品別売上 */}
         <div className="bg-white p-6 rounded-xl shadow-lg">
           <h3 className="text-lg font-bold text-gray-700 mb-4">
-            商品別 売上レポート
+            商品別 売上レポート（完了済みのみ）
           </h3>
           <div className="space-y-3">
             {salesByProduct.map((p) => (
@@ -642,11 +643,12 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
             {orders.slice(0, 10).map((order) => (
               <div
                 key={order.id}
-                className={`p-3 rounded-lg border ${
-                  order.status === "completed"
-                    ? "bg-green-50 border-green-200"
+                className={`p-3 rounded-lg border ${order.status === "completed"
+                  ? "bg-green-50 border-green-200"
+                  : order.status === "cancelled"
+                    ? "bg-red-50 border-red-200"
                     : "bg-yellow-50 border-yellow-200"
-                }`}
+                  }`}
               >
                 <div className="flex justify-between items-start">
                   <div>
@@ -657,8 +659,8 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                       ¥{order.totalAmount.toLocaleString()} ({order.items.reduce((sum, item) => sum + item.quantity, 0)}点)
                     </p>
                     <p className="text-xs text-gray-500">
-                      {order.createdAt?.toDate ? 
-                        order.createdAt.toDate().toLocaleString('ja-JP') : 
+                      {order.createdAt?.toDate ?
+                        order.createdAt.toDate().toLocaleString('ja-JP') :
                         new Date().toLocaleString('ja-JP')
                       }
                     </p>
@@ -669,10 +671,21 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                         <CheckCircle className="h-4 w-4 text-green-600" />
                         <span className="text-xs text-green-600 font-semibold">完了</span>
                       </>
+                    ) : order.status === "cancelled" ? (
+                      <>
+                        <X className="h-4 w-4 text-red-600" />
+                        <span className="text-xs text-red-600 font-semibold">取り消し</span>
+                      </>
                     ) : (
                       <>
                         <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
                         <span className="text-xs text-yellow-600 font-semibold">対応中</span>
+                        <button
+                          onClick={() => onCancelOrder(order.id)}
+                          className="ml-2 px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                        >
+                          取り消し
+                        </button>
                       </>
                     )}
                   </div>
@@ -702,10 +715,9 @@ const TicketPage = ({ lastOrder, setPage }) => {
     );
   }
 
-  const ticketUrl = `${
-    window.location.href.split("?")[0]
-  }?page=ticket&orderId=${lastOrder.id}`;
-  
+  const ticketUrl = `${window.location.href.split("?")[0]
+    }?page=ticket&orderId=${lastOrder.id}`;
+
   // QRコードにより実用的な情報を含める
   const qrCodeData = {
     ticketNumber: lastOrder.ticketNumber,
@@ -715,7 +727,7 @@ const TicketPage = ({ lastOrder, setPage }) => {
     createdAt: lastOrder.createdAt?.toDate ? lastOrder.createdAt.toDate().toISOString() : new Date().toISOString(),
     status: lastOrder.status || "pending"
   };
-  
+
   const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
     JSON.stringify(qrCodeData)
   )}`;
@@ -748,12 +760,102 @@ const TicketPage = ({ lastOrder, setPage }) => {
           />
         </div>
 
+        <div className="space-y-3">
+          <button
+            onClick={() => setPage("customer")}
+            className="w-full bg-blue-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-600 transition-colors duration-300"
+          >
+            新しい注文をする
+          </button>
+          <button
+            onClick={() => {
+              // 整理券を再表示するためのURLをコピー
+              navigator.clipboard.writeText(ticketUrl);
+              alert('整理券のURLをクリップボードにコピーしました。\n\nこのURLをブックマークしておくと、後で整理券を再表示できます。');
+            }}
+            className="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-600 transition-colors duration-300"
+          >
+            整理券URLをコピー
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- 受け渡し完了感謝メッセージページ ---
+const ThankYouPage = ({ completedOrder, setPage }) => {
+  if (!completedOrder) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <p>完了した注文情報が見つかりません。</p>
         <button
           onClick={() => setPage("customer")}
-          className="w-full mt-4 bg-blue-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-blue-600 transition-colors duration-300"
+          className="mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded"
         >
-          新しい注文をする
+          注文ページに戻る
         </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="bg-white max-w-md w-full rounded-2xl shadow-2xl p-8 text-center border-t-8 border-green-500">
+        <CheckCircle className="mx-auto text-green-500 mb-4" size={64} />
+        <h2 className="text-2xl font-bold text-gray-800 mb-4">
+          ご利用ありがとうございました！
+        </h2>
+        <p className="text-gray-600 mb-6">
+          商品の受け渡しが完了しました。<br />
+          おいしいアイスクリームをお楽しみください。
+        </p>
+
+        <div className="bg-green-50 p-6 rounded-lg my-6">
+          <p className="text-lg text-gray-700 mb-2">整理番号</p>
+          <p className="text-4xl font-extrabold tracking-wider text-green-600">
+            {String(completedOrder.ticketNumber).padStart(3, "0")}
+          </p>
+          <p className="text-sm text-gray-500 mt-2">
+            完了時刻: {completedOrder.completedAt?.toDate ?
+              completedOrder.completedAt.toDate().toLocaleString('ja-JP') :
+              new Date().toLocaleString('ja-JP')
+            }
+          </p>
+        </div>
+
+        <div className="bg-gray-50 rounded-lg p-4 mb-6">
+          <h3 className="font-semibold text-gray-800 mb-2">ご注文内容</h3>
+          <div className="space-y-1">
+            {completedOrder.items.map((item, index) => (
+              <div key={index} className="flex justify-between text-sm">
+                <span className="text-gray-600">{item.name}</span>
+                <span className="font-semibold">{item.quantity}個</span>
+              </div>
+            ))}
+          </div>
+          <div className="border-t pt-2 mt-2">
+            <div className="flex justify-between font-bold">
+              <span>合計金額</span>
+              <span className="text-green-600">¥{completedOrder.totalAmount.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <button
+            onClick={() => setPage("customer")}
+            className="w-full bg-green-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-green-600 transition-colors duration-300"
+          >
+            新しい注文をする
+          </button>
+          <button
+            onClick={() => setPage("admin")}
+            className="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-600 transition-colors duration-300"
+          >
+            管理画面に戻る
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -804,7 +906,7 @@ const firebaseConfig = {
 );
 
 // --- QRコード読み取り画面 ---
-const QRScannerPage = ({ onClose, onOrderComplete }) => {
+const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
   const [scannedData, setScannedData] = useState(null);
   const [orderData, setOrderData] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -812,6 +914,11 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
   const [scanner, setScanner] = useState(null);
 
   useEffect(() => {
+    // 既存のスキャナーがあればクリア
+    if (scanner) {
+      scanner.clear();
+    }
+
     // QRコードスキャナーの初期化
     const html5QrcodeScanner = new Html5QrcodeScanner(
       "qr-reader",
@@ -832,13 +939,13 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
         html5QrcodeScanner.clear();
       }
     };
-  }, []);
+  }, []); // 空の依存関係配列で一度だけ実行
 
   const handleQRCodeScanned = async (decodedText) => {
     try {
       setError(null);
       setScannedData(decodedText);
-      
+
       // QRコードのデータを解析
       let orderInfo;
       try {
@@ -860,14 +967,19 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
       }
 
       const order = { id: orderDoc.id, ...orderDoc.data() };
-      
+
       // 既に完了済みの場合はエラー
       if (order.status === "completed") {
         throw new Error('この注文は既に完了済みです');
       }
 
+      // 取り消し済みの場合はエラー
+      if (order.status === "cancelled") {
+        throw new Error('この注文は取り消し済みです');
+      }
+
       setOrderData(order);
-      
+
       // スキャナーを停止
       if (scanner) {
         scanner.clear();
@@ -880,7 +992,7 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
 
   const handleCompleteOrder = async () => {
     if (!orderData) return;
-    
+
     setIsProcessing(true);
     try {
       // 注文ステータスを完了に更新
@@ -891,8 +1003,8 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
 
       // 完了コールバックを呼び出し
       onOrderComplete(orderData);
-      
-      // 画面を閉じる
+
+      // スタッフの画面を閉じる（客の画面遷移はFirestoreのリアルタイム更新で処理）
       onClose();
     } catch (err) {
       setError('注文の完了処理中にエラーが発生しました: ' + err.message);
@@ -905,12 +1017,12 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
     setScannedData(null);
     setOrderData(null);
     setError(null);
-    
+
     // スキャナーを再初期化
     if (scanner) {
       scanner.clear();
     }
-    
+
     const html5QrcodeScanner = new Html5QrcodeScanner(
       "qr-reader",
       { fps: 10, qrbox: { width: 250, height: 250 } },
@@ -948,7 +1060,7 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
               お客様の整理券のQRコードをカメラにかざしてください
             </p>
             <div id="qr-reader" className="mx-auto"></div>
-            
+
             {error && (
               <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm">{error}</p>
@@ -984,8 +1096,8 @@ const QRScannerPage = ({ onClose, onOrderComplete }) => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">注文時刻:</span>
                   <span className="font-semibold">
-                    {orderData.createdAt?.toDate ? 
-                      orderData.createdAt.toDate().toLocaleString('ja-JP') : 
+                    {orderData.createdAt?.toDate ?
+                      orderData.createdAt.toDate().toLocaleString('ja-JP') :
                       new Date().toLocaleString('ja-JP')
                     }
                   </span>
@@ -1107,7 +1219,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
   const handleDeleteProduct = async (productId) => {
     if (!confirm("この商品を削除しますか？")) return;
-    
+
     setIsProcessing(true);
     try {
       await deleteDoc(doc(db, "products", productId));
@@ -1169,10 +1281,9 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                 </div>
               </div>
               <p className="text-sm text-gray-600">¥{product.price.toLocaleString()}</p>
-              <p className={`text-sm font-semibold ${
-                product.stock > 10 ? "text-green-600" : 
+              <p className={`text-sm font-semibold ${product.stock > 10 ? "text-green-600" :
                 product.stock > 0 ? "text-yellow-600" : "text-red-600"
-              }`}>
+                }`}>
                 在庫: {product.stock}個
               </p>
             </div>
@@ -1185,7 +1296,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
             <h3 className="text-lg font-bold text-gray-800 mb-4">
               {isAddingProduct ? "新規商品追加" : "商品編集"}
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1290,10 +1401,11 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
 // --- メインコンポーネント ---
 export default function App() {
-  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket', 'productManagement'
+  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket', 'productManagement', 'thankYou'
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lastOrder, setLastOrder] = useState(null);
+  const [completedOrder, setCompletedOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [firebaseError, setFirebaseError] = useState(null);
   const [adminLoginModalOpen, setAdminLoginModalOpen] = useState(false);
@@ -1349,10 +1461,52 @@ export default function App() {
     setPage("admin");
   };
 
-  // 注文完了時の処理
-  const handleOrderComplete = (completedOrder) => {
-    console.log('注文完了:', completedOrder);
-    // 必要に応じて完了通知などを追加
+  // 注文完了時の処理（スタッフ用）
+  const handleOrderComplete = (completedOrderData) => {
+    console.log('注文完了:', completedOrderData);
+    setCompletedOrder(completedOrderData);
+  };
+
+  // 注文取り消し処理
+  const handleCancelOrder = async (orderId) => {
+    if (!confirm("この注文を取り消しますか？取り消し後は元に戻せません。")) {
+      return;
+    }
+
+    try {
+      // 注文データを取得
+      const orderDoc = await getDoc(doc(db, "orders", orderId));
+      if (!orderDoc.exists()) {
+        alert("注文が見つかりません");
+        return;
+      }
+
+      const order = orderDoc.data();
+
+      // 在庫を戻す
+      await runTransaction(db, async (transaction) => {
+        // 各商品の在庫を戻す
+        for (const item of order.items) {
+          const productRef = doc(db, "products", item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (productDoc.exists()) {
+            const currentStock = productDoc.data().stock;
+            transaction.update(productRef, { stock: currentStock + item.quantity });
+          }
+        }
+
+        // 注文ステータスを取り消しに更新
+        transaction.update(doc(db, "orders", orderId), {
+          status: "cancelled",
+          cancelledAt: new Date()
+        });
+      });
+
+      alert("注文を取り消しました。在庫も戻されました。");
+    } catch (error) {
+      console.error("注文取り消し中にエラーが発生しました:", error);
+      alert("注文の取り消しに失敗しました: " + error.message);
+    }
   };
 
   // 商品更新時の処理
@@ -1396,6 +1550,16 @@ export default function App() {
               return dateB - dateA;
             });
             setOrders(ordersData);
+
+            // 客の画面で整理券を表示している場合、注文ステータスの変更を監視
+            if (page === "ticket" && lastOrder) {
+              const currentOrder = ordersData.find(o => o.id === lastOrder.id);
+              if (currentOrder && currentOrder.status === "completed") {
+                // 注文が完了したら感謝メッセージページに遷移
+                setCompletedOrder(currentOrder);
+                setPage("thankYou");
+              }
+            }
           }
         );
 
@@ -1425,16 +1589,25 @@ export default function App() {
         }
       });
     };
-  }, []);
+  }, [page, lastOrder]); // pageとlastOrderを依存関係に追加
 
   // URLクエリパラメータに基づいて初期ページを設定
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const initialPage = params.get("page");
+    const orderId = params.get("orderId");
+
     if (initialPage === "admin" || initialPage === "customer") {
       setPage(initialPage);
+    } else if (initialPage === "ticket" && orderId) {
+      // 整理券の再表示
+      const order = orders.find(o => o.id === orderId);
+      if (order) {
+        setLastOrder(order);
+        setPage("ticket");
+      }
     }
-  }, []);
+  }, [orders]);
 
   const renderPage = () => {
     if (firebaseConfig.apiKey === "YOUR_API_KEY" || !firebaseConfig.projectId) {
@@ -1465,6 +1638,7 @@ export default function App() {
         </div>
       );
     }
+
     switch (page) {
       case "customer":
         return (
@@ -1480,20 +1654,23 @@ export default function App() {
         );
       case "admin":
         return (
-          <AdminPage 
-            products={products} 
-            orders={orders} 
+          <AdminPage
+            products={products}
+            orders={orders}
             onLogout={handleAdminLogout}
             onOpenScanner={handleOpenScanner}
             onOpenProductManagement={handleOpenProductManagement}
+            onCancelOrder={handleCancelOrder}
           />
         );
       case "ticket":
         return <TicketPage lastOrder={lastOrder} setPage={setPage} />;
+      case "thankYou":
+        return <ThankYouPage completedOrder={completedOrder} setPage={setPage} />;
       case "productManagement":
         return (
-          <ProductManagement 
-            products={products} 
+          <ProductManagement
+            products={products}
             onClose={handleCloseProductManagement}
             onProductUpdate={handleProductUpdate}
           />
@@ -1515,30 +1692,31 @@ export default function App() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans">
-      {page !== "ticket" && page !== "productManagement" && (
-        <AppHeader 
-          page={page} 
-          setPage={setPage} 
+      {page !== "ticket" && page !== "productManagement" && page !== "thankYou" && (
+        <AppHeader
+          page={page}
+          setPage={setPage}
           onAdminClick={handleAdminClick}
         />
       )}
       <main>{renderPage()}</main>
-      
+
       {/* 管理画面ログインモーダル */}
       <AdminLoginModal
         isOpen={adminLoginModalOpen}
         onClose={handleCloseAdminLoginModal}
         onLogin={handleAdminLogin}
       />
-      
+
       {/* QRコード読み取り画面 */}
       {qrScannerOpen && (
         <QRScannerPage
           onClose={handleCloseScanner}
           onOrderComplete={handleOrderComplete}
+          setPage={setPage}
         />
       )}
-      
+
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&display=swap');
         body {
