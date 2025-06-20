@@ -830,13 +830,13 @@ const ThankYouPage = ({ completedOrder, setPage }) => {
             {completedOrder.items.map((item, index) => (
               <div key={index} className="flex justify-between text-sm">
                 <span className="text-gray-600">{item.name}</span>
-                <span className="font-semibold">{item.quantity}個</span>
+                <span className="font-semibold text-green-600">{item.quantity}個</span>
               </div>
             ))}
           </div>
           <div className="border-t pt-2 mt-2">
             <div className="flex justify-between font-bold">
-              <span>合計金額</span>
+              <span className="text-gray-800">合計金額</span>
               <span className="text-green-600">¥{completedOrder.totalAmount.toLocaleString()}</span>
             </div>
           </div>
