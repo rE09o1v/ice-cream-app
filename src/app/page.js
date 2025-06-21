@@ -700,7 +700,27 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
 };
 
 // --- 整理券ページ ---
-const TicketPage = ({ lastOrder, setPage }) => {
+const TicketPage = ({ lastOrder, setPage, orders, setCompletedOrder }) => {
+  const [isCancelling, setIsCancelling] = useState(false);
+
+  // 注文ステータスをリアルタイムで確認
+  useEffect(() => {
+    if (lastOrder) {
+      const currentOrder = orders.find(o => o.id === lastOrder.id);
+      if (currentOrder) {
+        if (currentOrder.status === "completed") {
+          // 完了済みの場合は感謝メッセージページに遷移
+          setCompletedOrder(currentOrder);
+          setPage("thankYou");
+        } else if (currentOrder.status === "cancelled") {
+          // 取り消し済みの場合は注文ページに戻る
+          alert("この注文は取り消されました。");
+          setPage("customer");
+        }
+      }
+    }
+  }, [orders, lastOrder, setPage, setCompletedOrder]);
+
   if (!lastOrder) {
     return (
       <div className="container mx-auto px-4 py-8 text-center">
@@ -731,6 +751,51 @@ const TicketPage = ({ lastOrder, setPage }) => {
   const qrCodeApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(
     JSON.stringify(qrCodeData)
   )}`;
+
+  const handleCancelOrder = async () => {
+    if (!confirm("この注文を取り消しますか？取り消し後は元に戻せません。")) {
+      return;
+    }
+
+    setIsCancelling(true);
+    try {
+      // 注文データを取得
+      const orderDoc = await getDoc(doc(db, "orders", lastOrder.id));
+      if (!orderDoc.exists()) {
+        alert("注文が見つかりません");
+        return;
+      }
+
+      const order = orderDoc.data();
+
+      // 在庫を戻す
+      await runTransaction(db, async (transaction) => {
+        // 各商品の在庫を戻す
+        for (const item of order.items) {
+          const productRef = doc(db, "products", item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (productDoc.exists()) {
+            const currentStock = productDoc.data().stock;
+            transaction.update(productRef, { stock: currentStock + item.quantity });
+          }
+        }
+
+        // 注文ステータスを取り消しに更新
+        transaction.update(doc(db, "orders", lastOrder.id), {
+          status: "cancelled",
+          cancelledAt: new Date()
+        });
+      });
+
+      alert("注文を取り消しました。在庫も戻されました。");
+      setPage("customer");
+    } catch (error) {
+      console.error("注文取り消し中にエラーが発生しました:", error);
+      alert("注文の取り消しに失敗しました: " + error.message);
+    } finally {
+      setIsCancelling(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -776,6 +841,13 @@ const TicketPage = ({ lastOrder, setPage }) => {
             className="w-full bg-gray-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-gray-600 transition-colors duration-300"
           >
             整理券URLをコピー
+          </button>
+          <button
+            onClick={handleCancelOrder}
+            disabled={isCancelling}
+            className="w-full bg-red-500 text-white font-bold py-3 px-4 rounded-xl hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-300"
+          >
+            {isCancelling ? "取り消し中..." : "注文を取り消す"}
           </button>
         </div>
       </div>
@@ -969,7 +1041,7 @@ const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
 
       // 取り消し済みの場合はエラー
       if (order.status === "cancelled") {
-        throw new Error('この注文は取り消し済みです');
+        throw new Error('この注文は取り消し済みです。整理券が無効になっています。');
       }
 
       setOrderData(order);
@@ -1548,10 +1620,17 @@ export default function App() {
             // 客の画面で整理券を表示している場合、注文ステータスの変更を監視
             if (page === "ticket" && lastOrder) {
               const currentOrder = ordersData.find(o => o.id === lastOrder.id);
-              if (currentOrder && currentOrder.status === "completed") {
+              if (currentOrder) {
                 // 注文が完了したら感謝メッセージページに遷移
-                setCompletedOrder(currentOrder);
-                setPage("thankYou");
+                if (currentOrder.status === "completed") {
+                  setCompletedOrder(currentOrder);
+                  setPage("thankYou");
+                }
+                // 注文が取り消されたら注文ページに戻る
+                else if (currentOrder.status === "cancelled") {
+                  alert("この注文は取り消されました。");
+                  setPage("customer");
+                }
               }
             }
           }
@@ -1597,8 +1676,20 @@ export default function App() {
       // 整理券の再表示
       const order = orders.find(o => o.id === orderId);
       if (order) {
-        setLastOrder(order);
-        setPage("ticket");
+        // 注文ステータスを確認
+        if (order.status === "completed") {
+          // 完了済みの場合は感謝メッセージページを表示
+          setCompletedOrder(order);
+          setPage("thankYou");
+        } else if (order.status === "cancelled") {
+          // 取り消し済みの場合は注文ページに戻る
+          alert("この注文は取り消されました。");
+          setPage("customer");
+        } else {
+          // 対応中の場合は整理券ページを表示
+          setLastOrder(order);
+          setPage("ticket");
+        }
       }
     }
   }, [orders]);
@@ -1658,7 +1749,7 @@ export default function App() {
           />
         );
       case "ticket":
-        return <TicketPage lastOrder={lastOrder} setPage={setPage} />;
+        return <TicketPage lastOrder={lastOrder} setPage={setPage} orders={orders} setCompletedOrder={setCompletedOrder} />;
       case "thankYou":
         return <ThankYouPage completedOrder={completedOrder} setPage={setPage} />;
       case "productManagement":
