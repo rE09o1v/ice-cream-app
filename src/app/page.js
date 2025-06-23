@@ -16,6 +16,13 @@ import {
   setDoc,
 } from "firebase/firestore";
 import {
+  getStorage,
+  ref,
+  uploadBytes,
+  getDownloadURL,
+  deleteObject,
+} from "firebase/storage";
+import {
   Wifi,
   BatteryFull,
   X,
@@ -28,6 +35,8 @@ import {
   QrCode,
   CheckCircle,
   Camera,
+  Upload,
+  Image as ImageIcon,
 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
@@ -47,10 +56,68 @@ const firebaseConfig = {
 // 設定が有効な場合のみ初期化
 let app;
 let db;
+let storage;
 if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
   app = initializeApp(firebaseConfig);
   db = getFirestore(app);
+  storage = getStorage(app);
 }
+
+// --- 画像アップロード関数 ---
+const uploadImage = async (file, productId) => {
+  if (!storage) {
+    throw new Error("Firebase Storageが初期化されていません");
+  }
+
+  // ファイルサイズチェック（5MB以下）
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error("ファイルサイズは5MB以下にしてください");
+  }
+
+  // ファイル形式チェック
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error("JPEG、PNG、WebP形式の画像のみアップロード可能です");
+  }
+
+  try {
+    // ファイル名を生成（productId_timestamp.extension）
+    const timestamp = Date.now();
+    const fileExtension = file.name.split('.').pop();
+    const fileName = `${productId}_${timestamp}.${fileExtension}`;
+
+    // Storageの参照を作成
+    const storageRef = ref(storage, `product-images/${fileName}`);
+
+    // ファイルをアップロード
+    const snapshot = await uploadBytes(storageRef, file);
+
+    // ダウンロードURLを取得
+    const downloadURL = await getDownloadURL(snapshot.ref);
+
+    return downloadURL;
+  } catch (error) {
+    console.error("画像アップロードエラー:", error);
+    throw new Error("画像のアップロードに失敗しました");
+  }
+};
+
+// --- 画像削除関数 ---
+const deleteImage = async (imageUrl) => {
+  if (!storage || !imageUrl) return;
+
+  try {
+    // URLからファイルパスを抽出
+    const urlParts = imageUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1].split('?')[0];
+    const storageRef = ref(storage, `product-images/${fileName}`);
+
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.error("画像削除エラー:", error);
+    // 削除に失敗しても処理を続行
+  }
+};
 
 // --- ダミーデータ設定用の関数 ---
 // 初回実行時にFirestoreにサンプルデータを作成します。
@@ -1234,10 +1301,15 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
   });
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
 
   const handleEditProduct = (product) => {
     setEditingProduct({ ...product });
     setIsAddingProduct(false);
+    setImagePreview(product.imageUrl);
+    setSelectedFile(null);
   };
 
   const handleAddProduct = () => {
@@ -1249,18 +1321,49 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
     });
     setEditingProduct(null);
     setIsAddingProduct(true);
+    setImagePreview(null);
+    setSelectedFile(null);
+  };
+
+  const handleFileSelect = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      setSelectedFile(file);
+
+      // プレビュー表示
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target.result);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleSaveProduct = async () => {
     setIsProcessing(true);
+    setUploadProgress(0);
+
     try {
+      let imageUrl = "";
+
+      // 画像が選択されている場合はアップロード
+      if (selectedFile) {
+        const productId = isAddingProduct ? `product_${Date.now()}` : editingProduct.id;
+        imageUrl = await uploadImage(selectedFile, productId);
+        setUploadProgress(100);
+      } else {
+        // 既存の画像URLを使用
+        imageUrl = isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl;
+      }
+
       if (isAddingProduct) {
         // 新しい商品を追加
         const productId = `product_${Date.now()}`;
         await setDoc(doc(db, "products", productId), {
           ...newProduct,
           price: parseInt(newProduct.price),
-          stock: parseInt(newProduct.stock)
+          stock: parseInt(newProduct.stock),
+          imageUrl: imageUrl
         });
         setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
         setIsAddingProduct(false);
@@ -1270,10 +1373,16 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
           name: editingProduct.name,
           price: parseInt(editingProduct.price),
           stock: parseInt(editingProduct.stock),
-          imageUrl: editingProduct.imageUrl
+          imageUrl: imageUrl
         });
         setEditingProduct(null);
       }
+
+      // 状態をリセット
+      setSelectedFile(null);
+      setImagePreview(null);
+      setUploadProgress(0);
+
       onProductUpdate();
     } catch (error) {
       console.error("商品の保存中にエラーが発生しました:", error);
@@ -1288,6 +1397,12 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
     setIsProcessing(true);
     try {
+      // 商品の画像URLを取得して削除
+      const product = products.find(p => p.id === productId);
+      if (product && product.imageUrl) {
+        await deleteImage(product.imageUrl);
+      }
+
       await deleteDoc(doc(db, "products", productId));
       onProductUpdate();
     } catch (error) {
@@ -1302,6 +1417,9 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
     setEditingProduct(null);
     setIsAddingProduct(false);
     setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
+    setSelectedFile(null);
+    setImagePreview(null);
+    setUploadProgress(0);
   };
 
   return (
@@ -1346,6 +1464,15 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                   </button>
                 </div>
               </div>
+              {product.imageUrl && (
+                <div className="mb-2">
+                  <img
+                    src={product.imageUrl}
+                    alt={product.name}
+                    className="w-full h-24 object-cover rounded-lg"
+                  />
+                </div>
+              )}
               <p className="text-sm text-gray-600">¥{product.price.toLocaleString()}</p>
               <p className={`text-sm font-semibold ${product.stock > 10 ? "text-green-600" :
                 product.stock > 0 ? "text-yellow-600" : "text-red-600"
@@ -1425,21 +1552,76 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  画像URL
+                  商品画像
                 </label>
-                <input
-                  type="text"
-                  value={isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl}
-                  onChange={(e) => {
-                    if (isAddingProduct) {
-                      setNewProduct({ ...newProduct, imageUrl: e.target.value });
-                    } else {
-                      setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
-                    }
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
-                  placeholder="画像URLを入力"
-                />
+                <div className="space-y-3">
+                  {/* 画像アップロード */}
+                  <div className="flex items-center space-x-2">
+                    <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2">
+                      <Upload className="h-4 w-4" />
+                      <span>画像を選択</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileSelect}
+                        className="hidden"
+                      />
+                    </label>
+                    {selectedFile && (
+                      <span className="text-sm text-gray-600">
+                        {selectedFile.name}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* 画像プレビュー */}
+                  {imagePreview && (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="プレビュー"
+                        className="w-full h-32 object-cover rounded-lg border"
+                      />
+                      <button
+                        onClick={() => {
+                          setImagePreview(null);
+                          setSelectedFile(null);
+                        }}
+                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* アップロード進捗 */}
+                  {uploadProgress > 0 && uploadProgress < 100 && (
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                  )}
+
+                  {/* 代替: 画像URL入力 */}
+                  <div className="text-sm text-gray-600">
+                    <p>または画像URLを直接入力:</p>
+                    <input
+                      type="text"
+                      value={isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl}
+                      onChange={(e) => {
+                        if (isAddingProduct) {
+                          setNewProduct({ ...newProduct, imageUrl: e.target.value });
+                        } else {
+                          setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white mt-1"
+                      placeholder="https://example.com/image.jpg"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
