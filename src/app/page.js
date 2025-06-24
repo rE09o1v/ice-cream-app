@@ -1584,14 +1584,14 @@ const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
               <h3 className="text-lg font-bold text-gray-800 mb-3">注文内容</h3>
               <div className="space-y-2">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">整理番号:</span>
+                  <span className="text-gray-700 font-medium">整理番号:</span>
                   <span className="font-bold text-blue-600">
                     {String(orderData.ticketNumber).padStart(3, "0")}
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">注文時刻:</span>
-                  <span className="font-semibold">
+                  <span className="text-gray-700 font-medium">注文時刻:</span>
+                  <span className="font-bold text-gray-900">
                     {orderData.createdAt?.toDate ?
                       orderData.createdAt.toDate().toLocaleString('ja-JP') :
                       new Date().toLocaleString('ja-JP')
@@ -1599,7 +1599,7 @@ const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">合計金額:</span>
+                  <span className="text-gray-700 font-medium">合計金額:</span>
                   <span className="font-bold text-green-600">
                     ¥{orderData.totalAmount.toLocaleString()}
                   </span>
@@ -1608,12 +1608,12 @@ const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
             </div>
 
             <div className="bg-white border rounded-lg p-4">
-              <h4 className="font-semibold text-gray-800 mb-2">商品詳細</h4>
-              <div className="space-y-2">
+              <h4 className="font-bold text-gray-800 mb-3">商品詳細</h4>
+              <div className="space-y-3">
                 {orderData.items.map((item, index) => (
                   <div key={index} className="flex justify-between items-center">
-                    <span className="text-gray-700">{item.name}</span>
-                    <span className="font-semibold">
+                    <span className="text-gray-800 font-medium">{item.name}</span>
+                    <span className="font-bold text-gray-900 text-sm">
                       {item.quantity}個 × ¥{item.price} = ¥{(item.quantity * item.price).toLocaleString()}
                     </span>
                   </div>
