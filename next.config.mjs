@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  allowedDevOrigins: ['192.168.50.218'],
+  allowedDevOrigins: ['192.168.56.1', '192.168.50.218', 'localhost'],
   images: {
     remotePatterns: [
       {
@@ -27,14 +27,16 @@ const nextConfig = {
         port: '',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+        port: '',
+        pathname: '/**',
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: 'attachment',
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
-    domains: [
-      'firebasestorage.googleapis.com',
-      'images.unsplash.com'
-    ]
   },
   webpack: (config) => {
     config.resolve.fallback = {

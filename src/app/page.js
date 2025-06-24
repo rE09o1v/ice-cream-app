@@ -11,6 +11,7 @@ import {
   runTransaction,
   addDoc,
   getDoc,
+  getDocs,
   deleteDoc,
   updateDoc,
   setDoc,
@@ -567,29 +568,185 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
   const pendingOrders = orders.filter(order => order.status === "pending");
   const cancelledOrders = orders.filter(order => order.status === "cancelled");
 
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [proxyModalOpen, setProxyModalOpen] = useState(false);
+
+  const handleResetProducts = async () => {
+    setIsResetting(true);
+    try {
+      // 1. 全ての注文データを削除
+      const ordersSnapshot = await getDocs(collection(db, "orders"));
+      const orderDeletePromises = ordersSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(orderDeletePromises);
+
+      // 2. 商品データを初期状態にリセット
+      const initialProducts = [
+        {
+          id: "vanilla",
+          name: "濃厚バニラ",
+          price: 300,
+          stock: 50,
+          imageUrl: "/images/choco-mint.jpg",
+        },
+        {
+          id: "chocolate",
+          name: "とろけるチョコ",
+          price: 350,
+          stock: 50,
+          imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
+        },
+        {
+          id: "strawberry",
+          name: "果肉いちご",
+          price: 350,
+          stock: 40,
+          imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
+        },
+        {
+          id: "matcha",
+          name: "本格抹茶",
+          price: 400,
+          stock: 30,
+          imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
+        },
+      ];
+
+      // 3. トランザクションで商品データとメタデータを更新
+      await runTransaction(db, async (transaction) => {
+        // 各商品を初期状態に更新
+        initialProducts.forEach((prod) => {
+          transaction.set(doc(db, "products", prod.id), prod);
+        });
+
+        // 整理番号カウンターをリセット
+        transaction.set(doc(db, "metadata", "latestOrder"), { number: 0 });
+
+        // セットアップ完了フラグを更新
+        transaction.set(doc(db, "metadata", "setupComplete"), { done: true });
+      });
+
+      alert("すべてのデータ（商品・注文・売上・在庫）を初期状態にリセットしました。");
+    } catch (error) {
+      console.error("リセットエラー:", error);
+      alert("データリセットに失敗しました: " + error.message);
+    } finally {
+      setIsResetting(false);
+      setResetModalOpen(false);
+    }
+  };
+
+  const handleOpenProxyModal = () => {
+    setProxyModalOpen(true);
+  };
+
+  const handleCloseProxyModal = () => {
+    setProxyModalOpen(false);
+  };
+
+  const handleProxyOrder = async (orderData) => {
+    try {
+      // 代理注文処理
+      await runTransaction(db, async (transaction) => {
+        // 1. まず全ての読み取り操作を実行
+        const productDocs = [];
+        for (const item of orderData.items) {
+          const productRef = doc(db, "products", item.productId);
+          const productDoc = await transaction.get(productRef);
+          if (!productDoc.exists()) {
+            throw new Error(`商品が見つかりません: ${item.productId}`);
+          }
+          const productData = productDoc.data();
+          if (productData.stock < item.quantity) {
+            throw new Error(`在庫不足: ${productData.name}`);
+          }
+          productDocs.push({ ref: productRef, data: productData, item });
+        }
+
+        // 整理番号を取得
+        const latestOrderRef = doc(db, "metadata", "latestOrder");
+        const latestOrderDoc = await transaction.get(latestOrderRef);
+        const currentNumber = latestOrderDoc.exists() ? latestOrderDoc.data().number : 0;
+        const newTicketNumber = currentNumber + 1;
+
+        // 2. 次に全ての書き込み操作を実行
+        // 商品の在庫を減少
+        for (const { ref, data, item } of productDocs) {
+          transaction.update(ref, { stock: data.stock - item.quantity });
+        }
+
+        // 整理番号を更新
+        transaction.update(latestOrderRef, { number: newTicketNumber });
+
+        // 注文を作成
+        const orderRef = doc(collection(db, "orders"));
+        transaction.set(orderRef, {
+          ...orderData,
+          ticketNumber: newTicketNumber,
+          status: "pending",
+          isProxy: true,
+          createdAt: new Date(),
+          id: orderRef.id,
+        });
+      });
+
+      setProxyModalOpen(false);
+      alert("代理注文を受け付けました。");
+    } catch (error) {
+      console.error("代理注文エラー:", error);
+      alert("代理注文に失敗しました: " + error.message);
+    }
+  };
+
+  const handleCompleteOrder = async (orderId) => {
+    if (!confirm("この注文を受け渡し完了にしますか？")) {
+      return;
+    }
+
+    try {
+      // 注文ステータスを完了に更新
+      await updateDoc(doc(db, "orders", orderId), {
+        status: "completed",
+        completedAt: new Date()
+      });
+
+      alert("注文を受け渡し完了にしました。");
+    } catch (error) {
+      console.error("注文完了エラー:", error);
+      alert("注文の完了処理に失敗しました: " + error.message);
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       {/* スマホ用ダッシュボードタイトルとボタン */}
       <div className="block sm:hidden mb-6">
         <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">ダッシュボード</h2>
-        <div className="flex flex-row justify-between gap-2 w-full mb-6">
+        <div className="grid grid-cols-2 gap-2 w-full mb-6">
           <button
             onClick={onOpenProductManagement}
-            className="flex flex-col items-center justify-center w-24 aspect-square bg-purple-500 text-white font-semibold rounded-xl hover:bg-purple-600 transition-colors"
+            className="flex flex-col items-center justify-center aspect-square bg-purple-500 text-white font-semibold rounded-xl hover:bg-purple-600 transition-colors"
           >
             <ShoppingCart className="w-8 h-8 mb-1" />
             <span className="text-xs">商品管理</span>
           </button>
           <button
             onClick={onOpenScanner}
-            className="flex flex-col items-center justify-center w-24 aspect-square bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
+            className="flex flex-col items-center justify-center aspect-square bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
           >
             <QrCode className="w-8 h-8 mb-1" />
             <span className="text-xs">QRスキャン</span>
           </button>
           <button
+            onClick={handleOpenProxyModal}
+            className="flex flex-col items-center justify-center aspect-square bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
+          >
+            <User className="w-8 h-8 mb-1" />
+            <span className="text-xs">代理注文</span>
+          </button>
+          <button
             onClick={onLogout}
-            className="flex flex-col items-center justify-center w-24 aspect-square bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors"
+            className="flex flex-col items-center justify-center aspect-square bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-colors"
           >
             <Lock className="w-8 h-8 mb-1" />
             <span className="text-xs">ログアウト</span>
@@ -613,6 +770,20 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           >
             <QrCode size={16} />
             QRスキャン
+          </button>
+          <button
+            onClick={handleOpenProxyModal}
+            className="px-4 py-2 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+          >
+            <User size={16} />
+            代理注文
+          </button>
+          <button
+            onClick={() => setResetModalOpen(true)}
+            className="px-4 py-2 bg-red-400 text-white font-semibold rounded-lg hover:bg-red-500 transition-colors flex items-center gap-2"
+          >
+            <X size={16} />
+            全データリセット
           </button>
           <button
             onClick={onLogout}
@@ -747,12 +918,25 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                       <>
                         <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
                         <span className="text-xs text-yellow-600 font-semibold">対応中</span>
-                        <button
-                          onClick={() => onCancelOrder(order.id)}
-                          className="ml-2 px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors font-medium"
-                        >
-                          取り消し
-                        </button>
+                        {order.isProxy && (
+                          <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
+                            代理
+                          </span>
+                        )}
+                        <div className="ml-2 flex gap-1">
+                          <button
+                            onClick={() => handleCompleteOrder(order.id)}
+                            className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors font-medium"
+                          >
+                            受け渡し完了
+                          </button>
+                          <button
+                            onClick={() => onCancelOrder(order.id)}
+                            className="px-2 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors font-medium"
+                          >
+                            取り消し
+                          </button>
+                        </div>
                       </>
                     )}
                   </div>
@@ -762,6 +946,45 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           </div>
         </div>
       </div>
+
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => setResetModalOpen(true)}
+          className="px-4 py-2 bg-red-400 text-white font-semibold rounded-lg hover:bg-red-500 transition-colors flex items-center gap-2"
+        >
+          <X size={16} />
+          全データリセット
+        </button>
+      </div>
+      {/* ここにモーダルを配置 */}
+      {resetModalOpen && (
+        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
+            <h2 className="text-xl font-bold mb-4 text-red-600">本当に全データをリセットしますか？</h2>
+            <p className="mb-4">この操作は元に戻せません。すべての商品・注文・売上・在庫データが初期状態に戻ります。</p>
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setResetModalOpen(false)}
+                className="flex-1 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
+              >キャンセル</button>
+              <button
+                onClick={handleResetProducts}
+                disabled={isResetting}
+                className="flex-1 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-300"
+              >{isResetting ? "リセット中..." : "OK（リセット）"}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 代理注文モーダル */}
+      {proxyModalOpen && (
+        <ProxyOrderModal
+          products={products}
+          onClose={handleCloseProxyModal}
+          onOrder={handleProxyOrder}
+        />
+      )}
     </div>
   );
 };
@@ -1037,6 +1260,146 @@ const firebaseConfig = {
     </div>
   </div>
 );
+
+// --- 代理注文モーダル ---
+const ProxyOrderModal = ({ products, onClose, onOrder }) => {
+  const [selectedItems, setSelectedItems] = useState({});
+  const [isOrdering, setIsOrdering] = useState(false);
+
+  const updateQuantity = (productId, delta) => {
+    setSelectedItems(prev => {
+      const currentQuantity = prev[productId] || 0;
+      const newQuantity = Math.max(0, Math.min(currentQuantity + delta, 10));
+      if (newQuantity === 0) {
+        const { [productId]: removed, ...rest } = prev;
+        return rest;
+      }
+      return { ...prev, [productId]: newQuantity };
+    });
+  };
+
+  const totalAmount = Object.entries(selectedItems).reduce((sum, [productId, quantity]) => {
+    const product = products.find(p => p.id === productId);
+    return sum + (product ? product.price * quantity : 0);
+  }, 0);
+
+  const totalItems = Object.values(selectedItems).reduce((sum, quantity) => sum + quantity, 0);
+
+  const handleOrder = async () => {
+    if (totalItems === 0) {
+      alert("商品を選択してください");
+      return;
+    }
+
+    setIsOrdering(true);
+    try {
+      const orderData = {
+        items: Object.entries(selectedItems).map(([productId, quantity]) => {
+          const product = products.find(p => p.id === productId);
+          return {
+            productId,
+            productName: product.name,
+            price: product.price,
+            quantity,
+          };
+        }),
+        totalAmount,
+      };
+
+      await onOrder(orderData);
+    } catch (error) {
+      console.error("注文エラー:", error);
+    } finally {
+      setIsOrdering(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50 p-4">
+      <div className="bg-white rounded-xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-800">代理注文</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </div>
+        </div>
+
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {products.map((product) => (
+              <div key={product.id} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center gap-4">
+                  <Image
+                    src={product.imageUrl}
+                    alt={product.name}
+                    width={60}
+                    height={60}
+                    className="rounded-lg object-cover"
+                  />
+                  <div className="flex-1">
+                    <h3 className="font-semibold text-gray-800">{product.name}</h3>
+                    <p className="text-sm text-gray-600">¥{product.price}</p>
+                    <p className="text-xs text-gray-500">在庫: {product.stock}個</p>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between mt-3">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => updateQuantity(product.id, -1)}
+                      disabled={!selectedItems[product.id]}
+                      className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center disabled:opacity-50"
+                    >
+                      -
+                    </button>
+                    <span className="w-8 text-center font-semibold">
+                      {selectedItems[product.id] || 0}
+                    </span>
+                    <button
+                      onClick={() => updateQuantity(product.id, 1)}
+                      disabled={product.stock === 0 || (selectedItems[product.id] || 0) >= Math.min(product.stock, 10)}
+                      className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center disabled:opacity-50"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="p-6 border-t border-gray-200 bg-gray-50">
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <p className="text-sm text-gray-600">合計: {totalItems}点</p>
+              <p className="text-xl font-bold text-blue-600">¥{totalAmount.toLocaleString()}</p>
+            </div>
+          </div>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 border border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-100 transition-colors"
+            >
+              キャンセル
+            </button>
+            <button
+              onClick={handleOrder}
+              disabled={totalItems === 0 || isOrdering}
+              className="flex-1 py-3 bg-green-500 text-white font-semibold rounded-lg hover:bg-green-600 disabled:bg-gray-300 transition-colors"
+            >
+              {isOrdering ? "注文中..." : "注文確定"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // --- QRコード読み取り画面 ---
 const QRScannerPage = ({ onClose, onOrderComplete, setPage }) => {
