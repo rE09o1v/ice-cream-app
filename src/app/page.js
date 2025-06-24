@@ -892,11 +892,25 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                   <div>
                     <p className="font-semibold text-gray-800">
                       整理番号: {String(order.ticketNumber).padStart(3, "0")}
+                      {order.isProxy && (
+                        <span className="ml-2 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
+                          代理
+                        </span>
+                      )}
                     </p>
                     <p className="text-sm text-gray-600">
                       ¥{order.totalAmount.toLocaleString()} ({order.items.reduce((sum, item) => sum + item.quantity, 0)}点)
                     </p>
-                    <p className="text-xs text-gray-500">
+                    {/* 商品詳細表示 */}
+                    <div className="text-xs text-gray-600 mt-1">
+                      {order.items.map((item, index) => (
+                        <span key={index}>
+                          {item.name || item.productName}×{item.quantity}
+                          {index < order.items.length - 1 ? "、" : ""}
+                        </span>
+                      ))}
+                    </div>
+                    <p className="text-xs text-gray-500 mt-1">
                       {order.createdAt?.toDate ?
                         order.createdAt.toDate().toLocaleString('ja-JP') :
                         new Date().toLocaleString('ja-JP')
@@ -918,11 +932,6 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                       <>
                         <div className="h-4 w-4 rounded-full bg-yellow-500"></div>
                         <span className="text-xs text-yellow-600 font-semibold">対応中</span>
-                        {order.isProxy && (
-                          <span className="ml-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded font-medium">
-                            代理
-                          </span>
-                        )}
                         <div className="ml-2 flex gap-1">
                           <button
                             onClick={() => handleCompleteOrder(order.id)}
@@ -1049,29 +1058,40 @@ const TicketPage = ({ lastOrder, setPage, orders, setCompletedOrder }) => {
 
     setIsCancelling(true);
     try {
-      // 注文データを取得
-      const orderDoc = await getDoc(doc(db, "orders", lastOrder.id));
-      if (!orderDoc.exists()) {
-        alert("注文が見つかりません");
-        return;
-      }
-
-      const order = orderDoc.data();
-
       // 在庫を戻す
       await runTransaction(db, async (transaction) => {
-        // 各商品の在庫を戻す
+        // 1. まず全ての読み取り操作を実行
+        const orderRef = doc(db, "orders", lastOrder.id);
+        const orderDoc = await transaction.get(orderRef);
+
+        if (!orderDoc.exists()) {
+          throw new Error("注文が見つかりません");
+        }
+
+        const order = orderDoc.data();
+
+        // 各商品の現在の在庫を読み取り
+        const productUpdates = [];
         for (const item of order.items) {
           const productRef = doc(db, "products", item.productId);
           const productDoc = await transaction.get(productRef);
           if (productDoc.exists()) {
             const currentStock = productDoc.data().stock;
-            transaction.update(productRef, { stock: currentStock + item.quantity });
+            productUpdates.push({
+              ref: productRef,
+              newStock: currentStock + item.quantity
+            });
           }
         }
 
+        // 2. 次に全ての書き込み操作を実行
+        // 各商品の在庫を更新
+        for (const update of productUpdates) {
+          transaction.update(update.ref, { stock: update.newStock });
+        }
+
         // 注文ステータスを取り消しに更新
-        transaction.update(doc(db, "orders", lastOrder.id), {
+        transaction.update(orderRef, {
           status: "cancelled",
           cancelledAt: new Date()
         });
@@ -1298,6 +1318,7 @@ const ProxyOrderModal = ({ products, onClose, onOrder }) => {
           const product = products.find(p => p.id === productId);
           return {
             productId,
+            name: product.name, // nameとproductNameの両方を保存
             productName: product.name,
             price: product.price,
             quantity,
@@ -1330,46 +1351,88 @@ const ProxyOrderModal = ({ products, onClose, onOrder }) => {
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[60vh]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {products.map((product) => (
-              <div key={product.id} className="bg-gray-50 rounded-lg p-4">
-                <div className="flex items-center gap-4">
-                  <Image
-                    src={product.imageUrl}
-                    alt={product.name}
-                    width={60}
-                    height={60}
-                    className="rounded-lg object-cover"
-                  />
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800">{product.name}</h3>
-                    <p className="text-sm text-gray-600">¥{product.price}</p>
-                    <p className="text-xs text-gray-500">在庫: {product.stock}個</p>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between mt-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => updateQuantity(product.id, -1)}
-                      disabled={!selectedItems[product.id]}
-                      className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center disabled:opacity-50"
-                    >
-                      -
-                    </button>
-                    <span className="w-8 text-center font-semibold">
-                      {selectedItems[product.id] || 0}
-                    </span>
-                    <button
-                      onClick={() => updateQuantity(product.id, 1)}
-                      disabled={product.stock === 0 || (selectedItems[product.id] || 0) >= Math.min(product.stock, 10)}
-                      className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center disabled:opacity-50"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
+          {/* 選択中の商品一覧 */}
+          {totalItems > 0 && (
+            <div className="mb-6 bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h3 className="font-bold text-blue-800 mb-3">選択中の商品</h3>
+              <div className="space-y-2">
+                {Object.entries(selectedItems).map(([productId, quantity]) => {
+                  const product = products.find(p => p.id === productId);
+                  return (
+                    <div key={productId} className="flex justify-between items-center bg-white rounded-lg p-3">
+                      <div className="flex items-center gap-3">
+                        <Image
+                          src={product.imageUrl}
+                          alt={product.name}
+                          width={40}
+                          height={40}
+                          className="rounded-lg object-cover"
+                        />
+                        <div>
+                          <span className="font-bold text-gray-800">{product.name}</span>
+                          <p className="text-sm text-gray-600">¥{product.price} × {quantity}個</p>
+                        </div>
+                      </div>
+                      <div className="font-bold text-green-600">
+                        ¥{(product.price * quantity).toLocaleString()}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
-            ))}
+            </div>
+          )}
+
+          {/* 商品選択エリア */}
+          <h3 className="font-bold text-gray-800 mb-4">商品を選択してください</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {products.map((product) => {
+              const isSelected = selectedItems[product.id] > 0;
+              return (
+                <div key={product.id} className={`rounded-lg p-4 border-2 transition-all ${isSelected
+                  ? 'bg-blue-50 border-blue-300'
+                  : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                  }`}>
+                  <div className="flex items-center gap-4">
+                    <Image
+                      src={product.imageUrl}
+                      alt={product.name}
+                      width={60}
+                      height={60}
+                      className="rounded-lg object-cover"
+                    />
+                    <div className="flex-1">
+                      <h3 className={`font-semibold ${isSelected ? 'text-blue-800' : 'text-gray-800'}`}>
+                        {product.name}
+                      </h3>
+                      <p className="text-sm text-gray-600">¥{product.price}</p>
+                      <p className="text-xs text-gray-500">在庫: {product.stock}個</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => updateQuantity(product.id, -1)}
+                        disabled={!selectedItems[product.id]}
+                        className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center disabled:opacity-50 hover:bg-gray-300 transition-colors"
+                      >
+                        -
+                      </button>
+                      <span className={`w-8 text-center font-bold ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>
+                        {selectedItems[product.id] || 0}
+                      </span>
+                      <button
+                        onClick={() => updateQuantity(product.id, 1)}
+                        disabled={product.stock === 0 || (selectedItems[product.id] || 0) >= Math.min(product.stock, 10)}
+                        className="w-8 h-8 bg-blue-500 text-white rounded-full flex items-center justify-center disabled:opacity-50 hover:bg-blue-600 transition-colors"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -2085,29 +2148,40 @@ export default function App() {
     }
 
     try {
-      // 注文データを取得
-      const orderDoc = await getDoc(doc(db, "orders", orderId));
-      if (!orderDoc.exists()) {
-        alert("注文が見つかりません");
-        return;
-      }
-
-      const order = orderDoc.data();
-
       // 在庫を戻す
       await runTransaction(db, async (transaction) => {
-        // 各商品の在庫を戻す
+        // 1. まず全ての読み取り操作を実行
+        const orderRef = doc(db, "orders", orderId);
+        const orderDoc = await transaction.get(orderRef);
+
+        if (!orderDoc.exists()) {
+          throw new Error("注文が見つかりません");
+        }
+
+        const order = orderDoc.data();
+
+        // 各商品の現在の在庫を読み取り
+        const productUpdates = [];
         for (const item of order.items) {
           const productRef = doc(db, "products", item.productId);
           const productDoc = await transaction.get(productRef);
           if (productDoc.exists()) {
             const currentStock = productDoc.data().stock;
-            transaction.update(productRef, { stock: currentStock + item.quantity });
+            productUpdates.push({
+              ref: productRef,
+              newStock: currentStock + item.quantity
+            });
           }
         }
 
+        // 2. 次に全ての書き込み操作を実行
+        // 各商品の在庫を更新
+        for (const update of productUpdates) {
+          transaction.update(update.ref, { stock: update.newStock });
+        }
+
         // 注文ステータスを取り消しに更新
-        transaction.update(doc(db, "orders", orderId), {
+        transaction.update(orderRef, {
           status: "cancelled",
           cancelledAt: new Date()
         });
