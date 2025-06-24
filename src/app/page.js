@@ -2363,6 +2363,72 @@ export default function App() {
             transform: translateY(0);
           }
         }
+        
+        /* QRスキャナーのカメラ選択UIのスタイル修正 */
+        #qr-reader select {
+          color: #1f2937 !important;
+          background-color: #ffffff !important;
+          border: 2px solid #d1d5db !important;
+          border-radius: 0.5rem !important;
+          padding: 0.5rem !important;
+          font-size: 1rem !important;
+          font-weight: 600 !important;
+        }
+        
+        #qr-reader button {
+          color: #ffffff !important;
+          background-color: #3b82f6 !important;
+          border: none !important;
+          border-radius: 0.5rem !important;
+          padding: 0.5rem 1rem !important;
+          font-size: 1rem !important;
+          font-weight: 600 !important;
+          cursor: pointer !important;
+        }
+        
+        #qr-reader button:hover {
+          background-color: #2563eb !important;
+        }
+        
+        #qr-reader span {
+          color: #374151 !important;
+          font-weight: 600 !important;
+        }
+        
+        #qr-reader div {
+          color: #374151 !important;
+        }
+        
+        /* QRスキャナーのメッセージテキスト */
+        #qr-reader__dashboard_section_csr {
+          color: #374151 !important;
+          font-weight: 600 !important;
+        }
+        
+        /* QRスキャナーのヘッダー部分 */
+        #qr-reader__header_message {
+          color: #374151 !important;
+          font-weight: 600 !important;
+          background-color: #f9fafb !important;
+          padding: 0.75rem !important;
+          border-radius: 0.5rem !important;
+          margin-bottom: 1rem !important;
+        }
+        
+        /* QRスキャナーの設定やカメラ選択関連のテキスト */
+        #qr-reader__dashboard_section_csr span,
+        #qr-reader__dashboard_section_csr div,
+        #qr-reader__dashboard_section_csr label {
+          color: #1f2937 !important;
+          font-weight: 600 !important;
+        }
+        
+        /* QRスキャナー全体のコンテナ */
+        #qr-reader {
+          background-color: #ffffff !important;
+          border-radius: 1rem !important;
+          padding: 1rem !important;
+        }
       `}</style>
     </div>
   );
