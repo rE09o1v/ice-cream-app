@@ -38,6 +38,7 @@ import {
   Camera,
   Upload,
   Image as ImageIcon,
+  RotateCcw,
 } from "lucide-react";
 import { Html5QrcodeScanner } from "html5-qrcode";
 
@@ -751,81 +752,59 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
   const pendingOrders = orders.filter(order => order.status === "pending");
   const cancelledOrders = orders.filter(order => order.status === "cancelled");
 
-  const [resetModalOpen, setResetModalOpen] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [proxyModalOpen, setProxyModalOpen] = useState(false);
+  const [resetModalOpen, setResetModalOpen] = useState(false);
+  const [restoreModalOpen, setRestoreModalOpen] = useState(false);
+  const [backups, setBackups] = useState([]);
 
-  const handleResetProducts = async () => {
+  // バックアップ一覧を取得
+  const fetchBackups = async () => {
+    try {
+      const backupsSnapshot = await getDocs(collection(db, "backups"));
+      const backupList = backupsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })).sort((a, b) => b.createdAt.toMillis() - a.createdAt.toMillis());
+      setBackups(backupList);
+    } catch (error) {
+      console.error("バックアップ一覧の取得エラー:", error);
+    }
+  };
+
+  // 注文データと売上データのみをリセット（商品データは保持）
+  const handleResetOrdersOnly = async (executorName) => {
     setIsResetting(true);
     try {
-      // 1. 全ての注文データを削除
+      // 1. バックアップを作成
+      const backupId = `backup_${Date.now()}`;
       const ordersSnapshot = await getDocs(collection(db, "orders"));
+      const ordersData = ordersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // メタデータを取得
+      const latestOrderDoc = await getDoc(doc(db, "metadata", "latestOrder"));
+      const latestOrderData = latestOrderDoc.exists() ? latestOrderDoc.data() : { number: 0 };
+
+      // バックアップを保存
+      await setDoc(doc(db, "backups", backupId), {
+        executorName: executorName,
+        createdAt: new Date(),
+        ordersData: ordersData,
+        latestOrderNumber: latestOrderData.number,
+        type: "orders_reset"
+      });
+
+      // 2. 全ての注文データを削除
       const orderDeletePromises = ordersSnapshot.docs.map(doc => deleteDoc(doc.ref));
       await Promise.all(orderDeletePromises);
 
-      // 2. 商品データを初期状態にリセット
-      const initialProducts = [
-        {
-          id: "vanilla",
-          name: "濃厚バニラ",
-          price: 300,
-          stock: 50,
-          maxStock: 100,
-          imageUrl: "/images/choco-mint.jpg",
-          description: "厳選されたマダガスカル産バニラビーンズを使用した、濃厚でクリーミーなアイスクリームです。口いっぱいに広がる上品な甘さをお楽しみください。",
-          nutrition: "エネルギー: 180kcal, タンパク質: 3.2g, 脂質: 8.5g, 炭水化物: 22.1g, 食塩相当量: 0.15g (100g当たり)",
-          allergens: "乳成分、卵を含む"
-        },
-        {
-          id: "chocolate",
-          name: "とろけるチョコ",
-          price: 350,
-          stock: 50,
-          maxStock: 100,
-          imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
-          description: "ベルギー産高級カカオを贅沢に使用したチョコレートアイスクリーム。深いコクと滑らかな口当たりが特徴的な逸品です。",
-          nutrition: "エネルギー: 195kcal, タンパク質: 4.1g, 脂質: 9.8g, 炭水化物: 21.5g, 食塩相当量: 0.18g (100g当たり)",
-          allergens: "乳成分、卵、大豆を含む"
-        },
-        {
-          id: "strawberry",
-          name: "果肉いちご",
-          price: 350,
-          stock: 40,
-          maxStock: 80,
-          imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
-          description: "栃木県産とちおとめを丸ごと使用し、果肉の食感を残したフルーティーなアイスクリーム。いちご本来の甘酸っぱさが楽しめます。",
-          nutrition: "エネルギー: 165kcal, タンパク質: 2.8g, 脂質: 7.2g, 炭水化物: 24.3g, 食塩相当量: 0.12g (100g当たり)",
-          allergens: "乳成分、卵を含む"
-        },
-        {
-          id: "matcha",
-          name: "本格抹茶",
-          price: 400,
-          stock: 30,
-          maxStock: 60,
-          imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
-          description: "京都宇治産の最高級抹茶を使用した本格的な和風アイスクリーム。抹茶の深い味わいと上品な苦味が楽しめる大人の味です。",
-          nutrition: "エネルギー: 175kcal, タンパク質: 3.5g, 脂質: 8.1g, 炭水化物: 20.8g, 食塩相当量: 0.14g (100g当たり)",
-          allergens: "乳成分、卵を含む"
-        },
-      ];
+      // 3. 整理番号カウンターをリセット
+      await updateDoc(doc(db, "metadata", "latestOrder"), { number: 0 });
 
-      // 3. トランザクションで商品データとメタデータを更新
-      await runTransaction(db, async (transaction) => {
-        // 各商品を初期状態に更新
-        initialProducts.forEach((prod) => {
-          transaction.set(doc(db, "products", prod.id), prod);
-        });
-
-        // 整理番号カウンターをリセット
-        transaction.set(doc(db, "metadata", "latestOrder"), { number: 0 });
-
-        // セットアップ完了フラグを更新
-        transaction.set(doc(db, "metadata", "setupComplete"), { done: true });
-      });
-
-      alert("すべてのデータ（商品・注文・売上・在庫）を初期状態にリセットしました。");
+      alert(`注文データと売上データをリセットしました。\nバックアップID: ${backupId}\n実行者: ${executorName}`);
     } catch (error) {
       console.error("リセットエラー:", error);
       alert("データリセットに失敗しました: " + error.message);
@@ -835,12 +814,74 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
     }
   };
 
-  const handleOpenProxyModal = () => {
-    setProxyModalOpen(true);
+  // バックアップからデータを復元
+  const handleRestoreFromBackup = async (backupId, executorName) => {
+    setIsResetting(true);
+    try {
+      // バックアップデータを取得
+      const backupDoc = await getDoc(doc(db, "backups", backupId));
+      if (!backupDoc.exists()) {
+        throw new Error("バックアップが見つかりません");
+      }
+
+      const backupData = backupDoc.data();
+
+      // 現在の注文データを削除
+      const currentOrdersSnapshot = await getDocs(collection(db, "orders"));
+      const deletePromises = currentOrdersSnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // バックアップから注文データを復元
+      const restorePromises = backupData.ordersData.map(order =>
+        setDoc(doc(db, "orders", order.id), order)
+      );
+      await Promise.all(restorePromises);
+
+      // 整理番号を復元
+      await updateDoc(doc(db, "metadata", "latestOrder"), {
+        number: backupData.latestOrderNumber
+      });
+
+      // 復元記録を作成
+      await setDoc(doc(collection(db, "restoreLog")), {
+        backupId: backupId,
+        executorName: executorName,
+        restoredAt: new Date(),
+        originalBackupDate: backupData.createdAt,
+        originalExecutor: backupData.executorName
+      });
+
+      alert(`データを復元しました。\nバックアップ日時: ${backupData.createdAt.toDate().toLocaleString()}\n元の実行者: ${backupData.executorName}\n復元実行者: ${executorName}`);
+    } catch (error) {
+      console.error("復元エラー:", error);
+      alert("データ復元に失敗しました: " + error.message);
+    } finally {
+      setIsResetting(false);
+      setRestoreModalOpen(false);
+    }
   };
 
-  const handleCloseProxyModal = () => {
-    setProxyModalOpen(false);
+
+
+  const handleOpenResetModal = () => {
+    setResetModalOpen(true);
+  };
+
+  const handleCloseResetModal = () => {
+    setResetModalOpen(false);
+  };
+
+  const handleOpenRestoreModal = () => {
+    fetchBackups();
+    setRestoreModalOpen(true);
+  };
+
+  const handleCloseRestoreModal = () => {
+    setRestoreModalOpen(false);
+  };
+
+  const handleOpenProxyModal = () => {
+    setProxyModalOpen(true);
   };
 
   const handleProxyOrder = async (orderData) => {
@@ -921,7 +962,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
       {/* スマホ用ダッシュボードタイトルとボタン */}
       <div className="block sm:hidden mb-6">
         <h2 className="text-2xl font-bold text-gray-800 text-center mb-4">ダッシュボード</h2>
-        <div className="grid grid-cols-2 gap-2 w-full mb-6">
+        <div className="grid grid-cols-2 gap-2 w-full">
           <button
             onClick={onOpenProductManagement}
             className="flex flex-col items-center justify-center aspect-square bg-purple-500 text-white font-semibold rounded-xl hover:bg-purple-600 transition-colors"
@@ -942,6 +983,20 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           >
             <User className="w-8 h-8 mb-1" />
             <span className="text-xs">代理注文</span>
+          </button>
+          <button
+            onClick={handleOpenResetModal}
+            className="flex flex-col items-center justify-center aspect-square bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors"
+          >
+            <AlertTriangle className="w-8 h-8 mb-1" />
+            <span className="text-xs">データリセット</span>
+          </button>
+          <button
+            onClick={handleOpenRestoreModal}
+            className="flex flex-col items-center justify-center aspect-square bg-blue-500 text-white font-semibold rounded-xl hover:bg-blue-600 transition-colors"
+          >
+            <RotateCcw className="w-8 h-8 mb-1" />
+            <span className="text-xs">データ復元</span>
           </button>
           <button
             onClick={onLogout}
@@ -978,11 +1033,18 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
             代理注文
           </button>
           <button
-            onClick={() => setResetModalOpen(true)}
-            className="px-4 py-2 bg-red-400 text-white font-semibold rounded-lg hover:bg-red-500 transition-colors flex items-center gap-2"
+            onClick={handleOpenResetModal}
+            className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
           >
-            <X size={16} />
-            全データリセット
+            <AlertTriangle size={16} />
+            注文データリセット
+          </button>
+          <button
+            onClick={handleOpenRestoreModal}
+            className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+          >
+            <RotateCcw size={16} />
+            データ復元
           </button>
           <button
             onClick={onLogout}
@@ -1157,39 +1219,43 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
 
       <div className="flex gap-3 mt-6">
         <button
-          onClick={() => setResetModalOpen(true)}
-          className="px-4 py-2 bg-red-400 text-white font-semibold rounded-lg hover:bg-red-500 transition-colors flex items-center gap-2"
+          onClick={handleOpenResetModal}
+          className="px-4 py-2 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 transition-colors flex items-center gap-2"
         >
-          <X size={16} />
-          全データリセット
+          <AlertTriangle size={16} />
+          注文データリセット
+        </button>
+        <button
+          onClick={handleOpenRestoreModal}
+          className="px-4 py-2 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 transition-colors flex items-center gap-2"
+        >
+          <RotateCcw size={16} />
+          データ復元
         </button>
       </div>
-      {/* ここにモーダルを配置 */}
-      {resetModalOpen && (
-        <div className="fixed inset-0 bg-black/30 flex justify-center items-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold mb-4 text-red-600">本当に全データをリセットしますか？</h2>
-            <p className="mb-4">この操作は元に戻せません。すべての商品・注文・売上・在庫データが初期状態に戻ります。</p>
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={() => setResetModalOpen(false)}
-                className="flex-1 py-2 border border-gray-300 rounded text-gray-700 hover:bg-gray-100"
-              >キャンセル</button>
-              <button
-                onClick={handleResetProducts}
-                disabled={isResetting}
-                className="flex-1 py-2 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-gray-300"
-              >{isResetting ? "リセット中..." : "OK（リセット）"}</button>
-            </div>
-          </div>
-        </div>
-      )}
+
+      {/* リセット確認モーダル */}
+      <ResetConfirmModal
+        isOpen={resetModalOpen}
+        onClose={handleCloseResetModal}
+        onConfirm={handleResetOrdersOnly}
+        isProcessing={isResetting}
+      />
+
+      {/* 復元モーダル */}
+      <RestoreModal
+        isOpen={restoreModalOpen}
+        onClose={handleCloseRestoreModal}
+        backups={backups}
+        onRestore={handleRestoreFromBackup}
+        isProcessing={isResetting}
+      />
 
       {/* 代理注文モーダル */}
       {proxyModalOpen && (
         <ProxyOrderModal
           products={products}
-          onClose={handleCloseProxyModal}
+          onClose={() => setProxyModalOpen(false)}
           onOrder={handleProxyOrder}
         />
       )}
@@ -2388,6 +2454,213 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
             </div>
           </div>
         )}
+      </div>
+    </div>
+  );
+};
+
+// --- リセット確認モーダル ---
+const ResetConfirmModal = ({ isOpen, onClose, onConfirm, isProcessing }) => {
+  const [executorName, setExecutorName] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (executorName.trim()) {
+      onConfirm(executorName.trim());
+      setExecutorName("");
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="bg-white w-full max-w-md rounded-2xl p-8 shadow-xl mx-4">
+        <div className="text-center mb-6">
+          <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+            <AlertTriangle className="h-6 w-6 text-orange-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">注文データリセット</h2>
+          <p className="text-gray-600 mt-2">
+            注文データと売上データをリセットします<br />
+            <span className="font-semibold text-green-600">商品データは保持されます</span>
+          </p>
+        </div>
+
+        <div className="bg-orange-50 rounded-lg p-4 mb-6 border border-orange-200">
+          <h3 className="font-semibold text-orange-800 mb-2">リセット内容:</h3>
+          <ul className="text-sm text-orange-700 space-y-1">
+            <li>• 全ての注文データを削除</li>
+            <li>• 売上データをリセット</li>
+            <li>• 整理番号をリセット</li>
+            <li>• 実行前に自動バックアップを作成</li>
+          </ul>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label htmlFor="executorName" className="block text-sm font-medium text-gray-700 mb-2">
+              実行者名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="executorName"
+              value={executorName}
+              onChange={(e) => setExecutorName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent text-gray-900 bg-white"
+              placeholder="実行者名を入力してください"
+              required
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isProcessing}
+              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors bg-white disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isProcessing || !executorName.trim()}
+              className="flex-1 py-3 px-4 bg-orange-500 text-white font-semibold rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? "処理中..." : "リセット実行"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// --- 復元モーダル ---
+const RestoreModal = ({ isOpen, onClose, backups, onRestore, isProcessing }) => {
+  const [selectedBackup, setSelectedBackup] = useState("");
+  const [executorName, setExecutorName] = useState("");
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (selectedBackup && executorName.trim()) {
+      onRestore(selectedBackup, executorName.trim());
+      setSelectedBackup("");
+      setExecutorName("");
+    }
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex justify-center items-center z-50">
+      <div className="bg-white w-full max-w-2xl rounded-2xl p-8 shadow-xl mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="text-center mb-6">
+          <div className="mx-auto h-12 w-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
+            <RotateCcw className="h-6 w-6 text-blue-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">データ復元</h2>
+          <p className="text-gray-600 mt-2">
+            バックアップから注文データを復元します
+          </p>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label htmlFor="backup" className="block text-sm font-medium text-gray-700 mb-3">
+              復元するバックアップを選択 <span className="text-red-500">*</span>
+            </label>
+            <div className="space-y-2 max-h-48 overflow-y-auto border rounded-lg p-2">
+              {backups.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">利用可能なバックアップがありません</p>
+              ) : (
+                backups.map((backup) => (
+                  <label
+                    key={backup.id}
+                    className={`flex items-center p-3 rounded-lg border cursor-pointer transition-colors ${selectedBackup === backup.id
+                      ? "bg-blue-50 border-blue-300"
+                      : "bg-white border-gray-200 hover:bg-gray-50"
+                      }`}
+                  >
+                    <input
+                      type="radio"
+                      name="backup"
+                      value={backup.id}
+                      checked={selectedBackup === backup.id}
+                      onChange={(e) => setSelectedBackup(e.target.value)}
+                      className="mr-3"
+                      disabled={isProcessing}
+                    />
+                    <div className="flex-1">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-semibold text-gray-800">
+                            {backup.createdAt.toDate().toLocaleString('ja-JP')}
+                          </p>
+                          <p className="text-sm text-gray-600">
+                            実行者: {backup.executorName}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm text-blue-600">
+                            注文件数: {backup.ordersData.length}件
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            整理番号: {backup.latestOrderNumber}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label htmlFor="restoreExecutorName" className="block text-sm font-medium text-gray-700 mb-2">
+              実行者名 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              id="restoreExecutorName"
+              value={executorName}
+              onChange={(e) => setExecutorName(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+              placeholder="実行者名を入力してください"
+              required
+              disabled={isProcessing}
+            />
+          </div>
+
+          <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200">
+            <h3 className="font-semibold text-yellow-800 mb-2">⚠️ 注意事項:</h3>
+            <ul className="text-sm text-yellow-700 space-y-1">
+              <li>• 現在の注文データは全て削除されます</li>
+              <li>• バックアップ時点の状態に戻ります</li>
+              <li>• 復元後は元に戻せません</li>
+            </ul>
+          </div>
+
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={isProcessing}
+              className="flex-1 py-3 px-4 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition-colors bg-white disabled:opacity-50"
+            >
+              キャンセル
+            </button>
+            <button
+              type="submit"
+              disabled={isProcessing || !selectedBackup || !executorName.trim() || backups.length === 0}
+              className="flex-1 py-3 px-4 bg-blue-500 text-white font-semibold rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            >
+              {isProcessing ? "復元中..." : "復元実行"}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   );
