@@ -356,6 +356,11 @@ const ProductCard = ({ product, onViewDetail }) => (
 const ProductDetailPage = ({ product, onAddToCart, onBack, setSuccessMessage }) => {
   const [quantity, setQuantity] = useState(1);
 
+  // ページ遷移時に自動的に最上部にスクロール
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
   const handleAddToCart = () => {
     onAddToCart(product, quantity);
     setSuccessMessage(`${product.name}を${quantity}個カートに追加しました！`);
