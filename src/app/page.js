@@ -356,8 +356,14 @@ const CartModal = ({ cart, setCart, onCheckout, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-white/70 flex justify-center items-end z-50">
-      <div className="bg-white w-full max-w-lg rounded-t-2xl p-6 shadow-xl animate-slide-up">
+    <div
+      className="fixed inset-0 bg-white/70 flex justify-center items-end z-50"
+      onClick={onClose}
+    >
+      <div
+        className="bg-white w-full max-w-lg rounded-t-2xl p-6 shadow-xl animate-slide-up"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-2xl font-bold text-gray-800">注文内容の確認</h2>
           <button
