@@ -138,6 +138,7 @@ const setupInitialData = async () => {
         name: "濃厚バニラ",
         price: 300,
         stock: 50,
+        maxStock: 100,
         imageUrl: "/images/choco-mint.jpg",
       },
       {
@@ -145,6 +146,7 @@ const setupInitialData = async () => {
         name: "とろけるチョコ",
         price: 350,
         stock: 50,
+        maxStock: 100,
         imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
       },
       {
@@ -152,6 +154,7 @@ const setupInitialData = async () => {
         name: "果肉いちご",
         price: 350,
         stock: 40,
+        maxStock: 80,
         imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
       },
       {
@@ -159,6 +162,7 @@ const setupInitialData = async () => {
         name: "本格抹茶",
         price: 400,
         stock: 30,
+        maxStock: 60,
         imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
       },
     ];
@@ -260,7 +264,7 @@ const AppHeader = ({ page, setPage, onAdminClick }) => (
   <header className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-40">
     <div className="container mx-auto px-4 py-3">
       <div className="flex justify-between items-center">
-        <div className="text-xl font-bold text-gray-800">🍦 Welcome to 1-F_BlueSeal</div>
+        <div className="text-xl font-bold text-gray-800">🍦 Welcome to BlueRush</div>
       </div>
     </div>
     <nav className="bg-gray-100">
@@ -587,6 +591,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           name: "濃厚バニラ",
           price: 300,
           stock: 50,
+          maxStock: 100,
           imageUrl: "/images/choco-mint.jpg",
         },
         {
@@ -594,6 +599,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           name: "とろけるチョコ",
           price: 350,
           stock: 50,
+          maxStock: 100,
           imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
         },
         {
@@ -601,6 +607,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           name: "果肉いちご",
           price: 350,
           stock: 40,
+          maxStock: 80,
           imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
         },
         {
@@ -608,6 +615,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           name: "本格抹茶",
           price: 400,
           stock: 30,
+          maxStock: 60,
           imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
         },
       ];
@@ -844,7 +852,7 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
                         ? "bg-yellow-500"
                         : "bg-red-500"
                       }`}
-                    style={{ width: `${(p.stock / 50) * 100}%` }}
+                    style={{ width: `${(p.stock / (p.maxStock || 50)) * 100}%` }}
                   ></div>
                 </div>
               </div>
@@ -1723,6 +1731,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
     name: "",
     price: 0,
     stock: 0,
+    maxStock: 100,
     imageUrl: ""
   });
   const [isAddingProduct, setIsAddingProduct] = useState(false);
@@ -1743,6 +1752,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
       name: "",
       price: 0,
       stock: 0,
+      maxStock: 100,
       imageUrl: ""
     });
     setEditingProduct(null);
@@ -1789,6 +1799,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
           ...newProduct,
           price: parseInt(newProduct.price),
           stock: parseInt(newProduct.stock),
+          maxStock: parseInt(newProduct.maxStock),
           imageUrl: imageUrl
         });
         setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
@@ -1799,6 +1810,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
           name: editingProduct.name,
           price: parseInt(editingProduct.price),
           stock: parseInt(editingProduct.stock),
+          maxStock: parseInt(editingProduct.maxStock),
           imageUrl: imageUrl
         });
         setEditingProduct(null);
@@ -1842,7 +1854,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
   const handleCancel = () => {
     setEditingProduct(null);
     setIsAddingProduct(false);
-    setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
+    setNewProduct({ name: "", price: 0, stock: 0, maxStock: 100, imageUrl: "" });
     setSelectedFile(null);
     setImagePreview(null);
     setUploadProgress(0);
@@ -1903,8 +1915,19 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
               <p className={`text-sm font-semibold ${product.stock > 10 ? "text-green-600" :
                 product.stock > 0 ? "text-yellow-600" : "text-red-600"
                 }`}>
-                在庫: {product.stock}個
+                在庫: {product.stock}個 / {product.maxStock || 50}個
               </p>
+              <div className="w-full bg-gray-200 rounded-full h-1.5 mt-1">
+                <div
+                  className={`h-1.5 rounded-full ${product.stock > 10
+                    ? "bg-green-500"
+                    : product.stock > 0
+                      ? "bg-yellow-500"
+                      : "bg-red-500"
+                    }`}
+                  style={{ width: `${(product.stock / (product.maxStock || 50)) * 100}%` }}
+                ></div>
+              </div>
             </div>
           ))}
         </div>
@@ -1916,7 +1939,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
               {isAddingProduct ? "新規商品追加" : "商品編集"}
             </h3>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   商品名
@@ -1978,75 +2001,96 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  商品画像
+                  在庫上限
                 </label>
-                <div className="space-y-3">
-                  {/* 画像アップロード */}
-                  <div className="flex items-center space-x-2">
-                    <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2">
-                      <Upload className="h-4 w-4" />
-                      <span>画像を選択</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleFileSelect}
-                        className="hidden"
-                      />
-                    </label>
-                    {selectedFile && (
-                      <span className="text-sm text-gray-600">
-                        {selectedFile.name}
-                      </span>
-                    )}
-                  </div>
+                <input
+                  type="number"
+                  value={isAddingProduct ? newProduct.maxStock : editingProduct.maxStock}
+                  onChange={(e) => {
+                    if (isAddingProduct) {
+                      setNewProduct({ ...newProduct, maxStock: e.target.value });
+                    } else {
+                      setEditingProduct({ ...editingProduct, maxStock: e.target.value });
+                    }
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                  placeholder="在庫上限を入力"
+                  min="1"
+                />
+              </div>
 
-                  {/* 画像プレビュー */}
-                  {imagePreview && (
-                    <div className="relative">
-                      <img
-                        src={imagePreview}
-                        alt="プレビュー"
-                        className="w-full h-32 object-cover rounded-lg border"
-                      />
-                      <button
-                        onClick={() => {
-                          setImagePreview(null);
-                          setSelectedFile(null);
-                        }}
-                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  )}
+            </div>
 
-                  {/* アップロード進捗 */}
-                  {uploadProgress > 0 && uploadProgress < 100 && (
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      ></div>
-                    </div>
-                  )}
-
-                  {/* 代替: 画像URL入力 */}
-                  <div className="text-sm text-gray-600">
-                    <p>または画像URLを直接入力:</p>
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                商品画像
+              </label>
+              <div className="space-y-3">
+                {/* 画像アップロード */}
+                <div className="flex items-center space-x-2">
+                  <label className="cursor-pointer bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600 transition-colors flex items-center space-x-2">
+                    <Upload className="h-4 w-4" />
+                    <span>画像を選択</span>
                     <input
-                      type="text"
-                      value={isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl}
-                      onChange={(e) => {
-                        if (isAddingProduct) {
-                          setNewProduct({ ...newProduct, imageUrl: e.target.value });
-                        } else {
-                          setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white mt-1"
-                      placeholder="https://example.com/image.jpg"
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="hidden"
                     />
+                  </label>
+                  {selectedFile && (
+                    <span className="text-sm text-gray-600">
+                      {selectedFile.name}
+                    </span>
+                  )}
+                </div>
+
+                {/* 画像プレビュー */}
+                {imagePreview && (
+                  <div className="relative">
+                    <img
+                      src={imagePreview}
+                      alt="プレビュー"
+                      className="w-full h-32 object-cover rounded-lg border"
+                    />
+                    <button
+                      onClick={() => {
+                        setImagePreview(null);
+                        setSelectedFile(null);
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
                   </div>
+                )}
+
+                {/* アップロード進捗 */}
+                {uploadProgress > 0 && uploadProgress < 100 && (
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${uploadProgress}%` }}
+                    ></div>
+                  </div>
+                )}
+
+                {/* 代替: 画像URL入力 */}
+                <div className="text-sm text-gray-600">
+                  <p>または画像URLを直接入力:</p>
+                  <input
+                    type="text"
+                    value={isAddingProduct ? newProduct.imageUrl : editingProduct.imageUrl}
+                    onChange={(e) => {
+                      if (isAddingProduct) {
+                        setNewProduct({ ...newProduct, imageUrl: e.target.value });
+                      } else {
+                        setEditingProduct({ ...editingProduct, imageUrl: e.target.value });
+                      }
+                    }}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white mt-1"
+                    placeholder="https://example.com/image.jpg"
+                  />
                 </div>
               </div>
             </div>
