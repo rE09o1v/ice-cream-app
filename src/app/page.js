@@ -260,11 +260,23 @@ const AdminLoginModal = ({ isOpen, onClose, onLogin }) => {
 };
 
 // --- ヘッダーコンポーネント ---
-const AppHeader = ({ page, setPage, onAdminClick }) => (
+const AppHeader = ({ page, setPage, onAdminClick, cart, setCartModalOpen }) => (
   <header className="bg-white/80 backdrop-blur-md shadow-md sticky top-0 z-40">
     <div className="container mx-auto px-4 py-3">
       <div className="flex justify-between items-center">
         <div className="text-xl font-bold text-gray-800">🍦 Welcome to BlueRush</div>
+        {/* カートボタン */}
+        <button
+          className="relative bg-blue-500 text-white rounded-full shadow-lg w-12 h-12 flex items-center justify-center hover:bg-blue-600 transition-colors"
+          onClick={() => setCartModalOpen(true)}
+        >
+          <ShoppingCart size={24} />
+          {Object.keys(cart).length > 0 && (
+            <span className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center font-bold">
+              {Object.values(cart).reduce((sum, item) => sum + item.quantity, 0)}
+            </span>
+          )}
+        </button>
       </div>
     </div>
     <nav className="bg-gray-100">
@@ -293,7 +305,7 @@ const AppHeader = ({ page, setPage, onAdminClick }) => (
 );
 
 // --- 商品カードコンポーネント ---
-const ProductCard = ({ product, onAddToCart }) => (
+const ProductCard = ({ product, onViewDetail }) => (
   <div className="bg-white rounded-xl shadow-lg overflow-hidden transition-transform duration-300 hover:scale-105">
     <Image
       src={product.imageUrl}
@@ -316,16 +328,159 @@ const ProductCard = ({ product, onAddToCart }) => (
         在庫: {product.stock > 0 ? `あと ${product.stock} 個` : "売り切れ"}
       </p>
       <button
-        onClick={e => { e.stopPropagation(); onAddToCart(product); }}
+        onClick={e => { e.stopPropagation(); onViewDetail(product); }}
         disabled={product.stock === 0}
         className="w-full mt-4 bg-blue-500 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-300 flex items-center justify-center gap-2"
       >
         <ShoppingCart size={16} />
-        <span>カートに入れる</span>
+        <span>詳細を見る</span>
       </button>
     </div>
   </div>
 );
+
+// --- 商品詳細画面 ---
+const ProductDetailPage = ({ product, onAddToCart, onBack, setSuccessMessage }) => {
+  const [quantity, setQuantity] = useState(1);
+
+  const handleAddToCart = () => {
+    onAddToCart(product, quantity);
+    setSuccessMessage(`${product.name}を${quantity}個カートに追加しました！`);
+    setTimeout(() => {
+      setSuccessMessage("");
+      onBack();
+    }, 1500);
+  };
+
+  const incrementQuantity = () => {
+    if (quantity < product.stock) {
+      setQuantity(quantity + 1);
+    }
+  };
+
+  const decrementQuantity = () => {
+    if (quantity > 1) {
+      setQuantity(quantity - 1);
+    }
+  };
+
+  return (
+    <div className="bg-white min-h-screen">
+      {/* ヘッダー */}
+      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 z-10">
+        <button onClick={onBack} className="text-gray-600 hover:text-gray-800">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h1 className="text-lg font-bold text-gray-800 truncate">{product.name}</h1>
+      </div>
+
+      <div className="container mx-auto px-4 py-6 max-w-lg">
+        {/* 商品画像 */}
+        <div className="mb-6">
+          <Image
+            src={product.imageUrl}
+            alt={product.name}
+            width={400}
+            height={300}
+            className="w-full h-64 object-cover rounded-xl"
+          />
+        </div>
+
+        {/* 商品情報 */}
+        <div className="mb-6">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">{product.name}</h2>
+          <p className="text-3xl font-bold text-blue-600 mb-4">¥{product.price.toLocaleString()}</p>
+
+          {/* 商品説明 */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <p className="text-gray-700">
+              厳選された素材を使用した、こだわりのアイスクリームです。
+              濃厚でなめらかな口当たりをお楽しみください。
+            </p>
+          </div>
+
+          {/* 在庫状況 */}
+          <div className="flex items-center gap-2 mb-6">
+            <div className={`w-3 h-3 rounded-full ${product.stock > 10 ? "bg-green-500" :
+              product.stock > 0 ? "bg-yellow-500" : "bg-red-500"
+              }`}></div>
+            <span className={`font-semibold ${product.stock > 10 ? "text-green-600" :
+              product.stock > 0 ? "text-yellow-600" : "text-red-600"
+              }`}>
+              {product.stock > 0 ? `在庫あり（あと${product.stock}個）` : "売り切れ"}
+            </span>
+          </div>
+        </div>
+
+        {/* 数量選択 */}
+        {product.stock > 0 && (
+          <div className="mb-8">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">数量を選択</h3>
+            <div className="flex items-center justify-center gap-4 bg-gray-50 rounded-lg p-4">
+              <button
+                onClick={decrementQuantity}
+                disabled={quantity <= 1}
+                className="w-12 h-12 rounded-full bg-white border border-gray-300 text-gray-600 text-xl font-bold flex items-center justify-center hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                −
+              </button>
+              <span className="text-2xl font-bold text-gray-800 min-w-[3rem] text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={incrementQuantity}
+                disabled={quantity >= product.stock}
+                className="w-12 h-12 rounded-full bg-white border border-gray-300 text-gray-600 text-xl font-bold flex items-center justify-center hover:bg-gray-100 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+              >
+                ＋
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 合計金額表示 */}
+        {product.stock > 0 && (
+          <div className="mb-6 bg-blue-50 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-lg font-semibold text-gray-700">小計</span>
+              <span className="text-2xl font-bold text-blue-600">
+                ¥{(product.price * quantity).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* カートに追加ボタン */}
+        <button
+          onClick={handleAddToCart}
+          disabled={product.stock === 0}
+          className="w-full bg-orange-500 text-white font-bold py-4 px-6 rounded-xl hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors duration-300 text-lg flex items-center justify-center gap-2"
+        >
+          <ShoppingCart size={20} />
+          <span>
+            {product.stock > 0 ? "カートに追加" : "売り切れ"}
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// --- 成功メッセージコンポーネント ---
+const SuccessMessage = ({ message }) => {
+  if (!message) return null;
+
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 animate-slide-down">
+      <div className="flex items-center gap-2">
+        <CheckCircle size={20} />
+        <span className="font-semibold">{message}</span>
+      </div>
+    </div>
+  );
+};
 
 // --- カートモーダル ---
 const CartModal = ({ cart, setCart, onCheckout, onClose }) => {
@@ -427,21 +582,10 @@ const CartModal = ({ cart, setCart, onCheckout, onClose }) => {
 };
 
 // --- 顧客向け注文ページ ---
-const CustomerPage = ({ products, setPage, setLastOrder, cart, setCart, cartModalOpen, setCartModalOpen }) => {
-  const handleAddToCart = (product) => {
-    setCart((prevCart) => {
-      console.log('setCart called for', product.name);
-      const newCart = { ...prevCart };
-      if (newCart[product.id]) {
-        if (newCart[product.id].quantity < product.stock) {
-          newCart[product.id].quantity = newCart[product.id].quantity + 1;
-        }
-      } else {
-        newCart[product.id] = { ...product, quantity: 1 };
-      }
-      return newCart;
-    });
-    setCartModalOpen(true);
+const CustomerPage = ({ products, setPage, setLastOrder, cart, setCart, cartModalOpen, setCartModalOpen, setSelectedProduct }) => {
+  const handleViewDetail = (product) => {
+    setSelectedProduct(product);
+    setPage("productDetail");
   };
 
   const handleCheckout = async () => {
@@ -532,22 +676,18 @@ const CustomerPage = ({ products, setPage, setLastOrder, cart, setCart, cartModa
             <ProductCard
               key={product.id}
               product={product}
-              onAddToCart={handleAddToCart}
+              onViewDetail={handleViewDetail}
             />
           ))}
         </div>
-        <button
-          className="fixed top-4 right-4 z-50 bg-blue-500 text-white rounded-full shadow-lg w-14 h-14 flex flex-col items-center justify-center text-xs font-bold hover:bg-blue-600 transition-colors"
-          onClick={() => setCartModalOpen(true)}
-        >
-          <ShoppingCart size={28} />
-          <span>カート</span>
-          {Object.keys(cart).length > 0 && (
-            <span className="absolute top-1 right-1 bg-red-500 text-white rounded-full px-2 text-xs">{Object.values(cart).reduce((sum, item) => sum + item.quantity, 0)}</span>
-          )}
-        </button>
+        {/* カートモーダル */}
         {cartModalOpen && (
-          <CartModal cart={cart} setCart={setCart} onCheckout={handleCheckout} onClose={() => setCartModalOpen(false)} />
+          <CartModal
+            cart={cart}
+            setCart={setCart}
+            onCheckout={handleCheckout}
+            onClose={() => setCartModalOpen(false)}
+          />
         )}
       </div>
     </div>
@@ -2125,7 +2265,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
 
 // --- メインコンポーネント ---
 export default function App() {
-  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket', 'productManagement', 'thankYou'
+  const [page, setPage] = useState("customer"); // 'customer', 'admin', 'ticket', 'productManagement', 'thankYou', 'productDetail'
   const [products, setProducts] = useState([]);
   const [orders, setOrders] = useState([]);
   const [lastOrder, setLastOrder] = useState(null);
@@ -2137,6 +2277,21 @@ export default function App() {
   const [qrScannerOpen, setQrScannerOpen] = useState(false);
   const [cartModalOpen, setCartModalOpen] = useState(false);
   const [cart, setCart] = useState({});
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  // 商品詳細ページからのカート追加処理
+  const handleAddToCartFromDetail = (product, quantity) => {
+    setCart((prevCart) => {
+      const newCart = { ...prevCart };
+      if (newCart[product.id]) {
+        newCart[product.id].quantity += quantity;
+      } else {
+        newCart[product.id] = { ...product, quantity };
+      }
+      return newCart;
+    });
+  };
 
   // 管理画面ボタンクリック時の処理
   const handleAdminClick = () => {
@@ -2404,6 +2559,7 @@ export default function App() {
             setCart={setCart}
             cartModalOpen={cartModalOpen}
             setCartModalOpen={setCartModalOpen}
+            setSelectedProduct={setSelectedProduct}
           />
         );
       case "admin":
@@ -2421,6 +2577,15 @@ export default function App() {
         return <TicketPage lastOrder={lastOrder} setPage={setPage} orders={orders} setCompletedOrder={setCompletedOrder} />;
       case "thankYou":
         return <ThankYouPage completedOrder={completedOrder} setPage={setPage} />;
+      case "productDetail":
+        return (
+          <ProductDetailPage
+            product={selectedProduct}
+            onAddToCart={handleAddToCartFromDetail}
+            onBack={() => setPage("customer")}
+            setSuccessMessage={setSuccessMessage}
+          />
+        );
       case "productManagement":
         return (
           <ProductManagement
@@ -2439,6 +2604,7 @@ export default function App() {
             setCart={setCart}
             cartModalOpen={cartModalOpen}
             setCartModalOpen={setCartModalOpen}
+            setSelectedProduct={setSelectedProduct}
           />
         );
     }
@@ -2446,11 +2612,14 @@ export default function App() {
 
   return (
     <div className="bg-gray-100 min-h-screen font-sans">
-      {page !== "ticket" && page !== "productManagement" && page !== "thankYou" && (
+      <SuccessMessage message={successMessage} />
+      {page !== "ticket" && page !== "productManagement" && page !== "thankYou" && page !== "productDetail" && (
         <AppHeader
           page={page}
           setPage={setPage}
           onAdminClick={handleAdminClick}
+          cart={cart}
+          setCartModalOpen={setCartModalOpen}
         />
       )}
       <main>{renderPage()}</main>
@@ -2485,6 +2654,20 @@ export default function App() {
           }
           to {
             transform: translateY(0);
+          }
+        }
+        
+        .animate-slide-down {
+          animation: slide-down 0.3s ease-out forwards;
+        }
+        @keyframes slide-down {
+          from {
+            transform: translate(-50%, -100%);
+            opacity: 0;
+          }
+          to {
+            transform: translate(-50%, 0);
+            opacity: 1;
           }
         }
         
