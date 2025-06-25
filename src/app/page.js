@@ -140,6 +140,9 @@ const setupInitialData = async () => {
         stock: 50,
         maxStock: 100,
         imageUrl: "/images/choco-mint.jpg",
+        description: "厳選されたマダガスカル産バニラビーンズを使用した、濃厚でクリーミーなアイスクリームです。口いっぱいに広がる上品な甘さをお楽しみください。",
+        nutrition: "エネルギー: 180kcal, タンパク質: 3.2g, 脂質: 8.5g, 炭水化物: 22.1g, 食塩相当量: 0.15g (100g当たり)",
+        allergens: "乳成分、卵を含む"
       },
       {
         id: "chocolate",
@@ -148,6 +151,9 @@ const setupInitialData = async () => {
         stock: 50,
         maxStock: 100,
         imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
+        description: "ベルギー産高級カカオを贅沢に使用したチョコレートアイスクリーム。深いコクと滑らかな口当たりが特徴的な逸品です。",
+        nutrition: "エネルギー: 195kcal, タンパク質: 4.1g, 脂質: 9.8g, 炭水化物: 21.5g, 食塩相当量: 0.18g (100g当たり)",
+        allergens: "乳成分、卵、大豆を含む"
       },
       {
         id: "strawberry",
@@ -156,6 +162,9 @@ const setupInitialData = async () => {
         stock: 40,
         maxStock: 80,
         imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
+        description: "栃木県産とちおとめを丸ごと使用し、果肉の食感を残したフルーティーなアイスクリーム。いちご本来の甘酸っぱさが楽しめます。",
+        nutrition: "エネルギー: 165kcal, タンパク質: 2.8g, 脂質: 7.2g, 炭水化物: 24.3g, 食塩相当量: 0.12g (100g当たり)",
+        allergens: "乳成分、卵を含む"
       },
       {
         id: "matcha",
@@ -164,6 +173,9 @@ const setupInitialData = async () => {
         stock: 30,
         maxStock: 60,
         imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
+        description: "京都宇治産の最高級抹茶を使用した本格的な和風アイスクリーム。抹茶の深い味わいと上品な苦味が楽しめる大人の味です。",
+        nutrition: "エネルギー: 175kcal, タンパク質: 3.5g, 脂質: 8.1g, 炭水化物: 20.8g, 食塩相当量: 0.14g (100g当たり)",
+        allergens: "乳成分、卵を含む"
       },
     ];
     await runTransaction(db, async (transaction) => {
@@ -395,11 +407,32 @@ const ProductDetailPage = ({ product, onAddToCart, onBack, setSuccessMessage }) 
 
           {/* 商品説明 */}
           <div className="bg-gray-50 rounded-lg p-4 mb-4">
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">商品説明</h3>
             <p className="text-gray-700">
-              厳選された素材を使用した、こだわりのアイスクリームです。
-              濃厚でなめらかな口当たりをお楽しみください。
+              {product.description || "厳選された素材を使用した、こだわりのアイスクリームです。濃厚でなめらかな口当たりをお楽しみください。"}
             </p>
           </div>
+
+          {/* 栄養成分 */}
+          {product.nutrition && (
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">栄養成分</h3>
+              <p className="text-gray-700 text-sm">
+                {product.nutrition}
+              </p>
+            </div>
+          )}
+
+          {/* アレルゲン情報 */}
+          {product.allergens && (
+            <div className="bg-orange-50 rounded-lg p-4 mb-4">
+              <h3 className="text-lg font-semibold text-gray-800 mb-2">アレルゲン情報</h3>
+              <p className="text-gray-700 text-sm">
+                <span className="font-medium text-orange-700">⚠️ 含まれるアレルゲン: </span>
+                {product.allergens}
+              </p>
+            </div>
+          )}
 
           {/* 在庫状況 */}
           <div className="flex items-center gap-2 mb-6">
@@ -739,6 +772,9 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           stock: 50,
           maxStock: 100,
           imageUrl: "/images/choco-mint.jpg",
+          description: "厳選されたマダガスカル産バニラビーンズを使用した、濃厚でクリーミーなアイスクリームです。口いっぱいに広がる上品な甘さをお楽しみください。",
+          nutrition: "エネルギー: 180kcal, タンパク質: 3.2g, 脂質: 8.5g, 炭水化物: 22.1g, 食塩相当量: 0.15g (100g当たり)",
+          allergens: "乳成分、卵を含む"
         },
         {
           id: "chocolate",
@@ -747,6 +783,9 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           stock: 50,
           maxStock: 100,
           imageUrl: "https://images.unsplash.com/photo-1488900128323-21503983a07e?w=400&h=300&fit=crop",
+          description: "ベルギー産高級カカオを贅沢に使用したチョコレートアイスクリーム。深いコクと滑らかな口当たりが特徴的な逸品です。",
+          nutrition: "エネルギー: 195kcal, タンパク質: 4.1g, 脂質: 9.8g, 炭水化物: 21.5g, 食塩相当量: 0.18g (100g当たり)",
+          allergens: "乳成分、卵、大豆を含む"
         },
         {
           id: "strawberry",
@@ -755,6 +794,9 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           stock: 40,
           maxStock: 80,
           imageUrl: "https://images.unsplash.com/photo-1501443762994-82bd5dace89a?w=400&h=300&fit=crop",
+          description: "栃木県産とちおとめを丸ごと使用し、果肉の食感を残したフルーティーなアイスクリーム。いちご本来の甘酸っぱさが楽しめます。",
+          nutrition: "エネルギー: 165kcal, タンパク質: 2.8g, 脂質: 7.2g, 炭水化物: 24.3g, 食塩相当量: 0.12g (100g当たり)",
+          allergens: "乳成分、卵を含む"
         },
         {
           id: "matcha",
@@ -763,6 +805,9 @@ const AdminPage = ({ products, orders, onLogout, onOpenScanner, onOpenProductMan
           stock: 30,
           maxStock: 60,
           imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=400&h=300&fit=crop",
+          description: "京都宇治産の最高級抹茶を使用した本格的な和風アイスクリーム。抹茶の深い味わいと上品な苦味が楽しめる大人の味です。",
+          nutrition: "エネルギー: 175kcal, タンパク質: 3.5g, 脂質: 8.1g, 炭水化物: 20.8g, 食塩相当量: 0.14g (100g当たり)",
+          allergens: "乳成分、卵を含む"
         },
       ];
 
@@ -1878,7 +1923,10 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
     price: 0,
     stock: 0,
     maxStock: 100,
-    imageUrl: ""
+    imageUrl: "",
+    description: "",
+    nutrition: "",
+    allergens: ""
   });
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -1899,7 +1947,10 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
       price: 0,
       stock: 0,
       maxStock: 100,
-      imageUrl: ""
+      imageUrl: "",
+      description: "",
+      nutrition: "",
+      allergens: ""
     });
     setEditingProduct(null);
     setIsAddingProduct(true);
@@ -1948,7 +1999,7 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
           maxStock: parseInt(newProduct.maxStock),
           imageUrl: imageUrl
         });
-        setNewProduct({ name: "", price: 0, stock: 0, imageUrl: "" });
+        setNewProduct({ name: "", price: 0, stock: 0, maxStock: 100, imageUrl: "", description: "", nutrition: "", allergens: "" });
         setIsAddingProduct(false);
       } else if (editingProduct) {
         // 既存商品を更新
@@ -1957,6 +2008,9 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
           price: parseInt(editingProduct.price),
           stock: parseInt(editingProduct.stock),
           maxStock: parseInt(editingProduct.maxStock),
+          description: editingProduct.description || "",
+          nutrition: editingProduct.nutrition || "",
+          allergens: editingProduct.allergens || "",
           imageUrl: imageUrl
         });
         setEditingProduct(null);
@@ -2000,7 +2054,16 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
   const handleCancel = () => {
     setEditingProduct(null);
     setIsAddingProduct(false);
-    setNewProduct({ name: "", price: 0, stock: 0, maxStock: 100, imageUrl: "" });
+    setNewProduct({
+      name: "",
+      price: 0,
+      stock: 0,
+      maxStock: 100,
+      imageUrl: "",
+      description: "",
+      nutrition: "",
+      allergens: ""
+    });
     setSelectedFile(null);
     setImagePreview(null);
     setUploadProgress(0);
@@ -2058,7 +2121,14 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                 </div>
               )}
               <p className="text-sm text-gray-600">¥{product.price.toLocaleString()}</p>
-              <p className={`text-sm font-semibold ${product.stock > 10 ? "text-green-600" :
+              {product.description && (
+                <p className="text-xs text-gray-500 mt-1 leading-tight">
+                  {product.description.length > 50
+                    ? product.description.substring(0, 50) + "..."
+                    : product.description}
+                </p>
+              )}
+              <p className={`text-sm font-semibold mt-2 ${product.stock > 10 ? "text-green-600" :
                 product.stock > 0 ? "text-yellow-600" : "text-red-600"
                 }`}>
                 在庫: {product.stock}個 / {product.maxStock || 50}個
@@ -2239,6 +2309,66 @@ const ProductManagement = ({ products, onClose, onProductUpdate }) => {
                   />
                 </div>
               </div>
+            </div>
+
+            {/* 商品説明 */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                商品説明
+              </label>
+              <textarea
+                value={isAddingProduct ? newProduct.description : (editingProduct.description || "")}
+                onChange={(e) => {
+                  if (isAddingProduct) {
+                    setNewProduct({ ...newProduct, description: e.target.value });
+                  } else {
+                    setEditingProduct({ ...editingProduct, description: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                placeholder="商品の詳細説明を入力してください"
+                rows="3"
+              />
+            </div>
+
+            {/* 栄養成分 */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                栄養成分 (1個あたり)
+              </label>
+              <textarea
+                value={isAddingProduct ? newProduct.nutrition : (editingProduct.nutrition || "")}
+                onChange={(e) => {
+                  if (isAddingProduct) {
+                    setNewProduct({ ...newProduct, nutrition: e.target.value });
+                  } else {
+                    setEditingProduct({ ...editingProduct, nutrition: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                placeholder="例: エネルギー: 180kcal, タンパク質: 3.2g, 脂質: 8.5g, 炭水化物: 22.1g, 食塩相当量: 0.15g"
+                rows="2"
+              />
+            </div>
+
+            {/* アレルゲン情報 */}
+            <div className="mt-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                アレルゲン情報
+              </label>
+              <input
+                type="text"
+                value={isAddingProduct ? newProduct.allergens : (editingProduct.allergens || "")}
+                onChange={(e) => {
+                  if (isAddingProduct) {
+                    setNewProduct({ ...newProduct, allergens: e.target.value });
+                  } else {
+                    setEditingProduct({ ...editingProduct, allergens: e.target.value });
+                  }
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 bg-white"
+                placeholder="例: 乳成分、卵、大豆を含む"
+              />
             </div>
 
             <div className="flex gap-3 mt-6">
